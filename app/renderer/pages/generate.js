@@ -488,6 +488,17 @@
       if (progText) {
         progText.textContent = `${current} / ${total}`;
       }
+    } else if (type === 'page-failed') {
+      if (preview) {
+        preview.textContent += `\n\n❌ 页面「${pageName}」生成失败: ${error}\n`;
+        preview.scrollTop = preview.scrollHeight;
+      }
+      if (barFill && total > 0) {
+        barFill.style.width = `${(current / total) * 100}%`;
+      }
+      if (progText) {
+        progText.textContent = `${current} / ${total}`;
+      }
     }
   }
 

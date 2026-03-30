@@ -241,6 +241,7 @@ async function generatePrdPages(session, prdConfig, selectedPages) {
   const normalizedPages = normalizeSelectedPages(selectedPages);
   const total = normalizedPages.length;
   let processed = 0;
+  const pageErrors = [];
 
   for (const pageName of normalizedPages) {
     if (session.aborted) {
@@ -250,34 +251,47 @@ async function generatePrdPages(session, prdConfig, selectedPages) {
 
     sendProgress({ type: 'progress', current: processed, total, pageName });
 
-    const pageResult = await orchestrate(session.convertResult, prdConfig, {
-      selectedPages: [pageName],
-      callbacks: {
-        onPageStart(currentPageName) {
-          sendProgress({ type: 'page-start', pageName: currentPageName, current: processed, total });
+    try {
+      const pageResult = await orchestrate(session.convertResult, prdConfig, {
+        selectedPages: [pageName],
+        callbacks: {
+          onPageStart(currentPageName) {
+            sendProgress({ type: 'page-start', pageName: currentPageName, current: processed, total });
+          },
+          onChunk(currentPageName, chunk) {
+            sendProgress({ type: 'chunk', pageName: currentPageName, chunk, current: processed, total });
+          },
+          onPageComplete(currentPageName) {
+            sendProgress({ type: 'page-complete', pageName: currentPageName, current: processed + 1, total });
+          },
+          onProgress(progress) {
+            sendProgress({ type: 'orchestrate-progress', current: processed, total, ...progress });
+          },
         },
-        onChunk(currentPageName, chunk) {
-          sendProgress({ type: 'chunk', pageName: currentPageName, chunk, current: processed, total });
-        },
-        onPageComplete(currentPageName) {
-          sendProgress({ type: 'page-complete', pageName: currentPageName, current: processed + 1, total });
-        },
-        onProgress(progress) {
-          sendProgress({ type: 'orchestrate-progress', current: processed, total, ...progress });
-        },
-      },
-    });
+      });
 
-    aggregatedPageOutputs.push(...(pageResult.pageOutputs || []));
-    processed += pageResult.stats && typeof pageResult.stats.processedPages === 'number'
-      ? pageResult.stats.processedPages
-      : 0;
+      aggregatedPageOutputs.push(...(pageResult.pageOutputs || []));
+      processed += pageResult.stats && typeof pageResult.stats.processedPages === 'number'
+        ? pageResult.stats.processedPages
+        : 0;
+    } catch (pageError) {
+      const errMsg = pageError.message || String(pageError);
+      pageErrors.push({ pageName, error: errMsg });
+      sendProgress({ type: 'page-failed', pageName, error: errMsg, current: processed, total });
+      processed += 1;
+    }
+
     sendProgress({ type: 'progress', current: processed, total, pageName });
   }
 
   const sitemap = session.convertResult && session.convertResult.sitemap
     ? session.convertResult.sitemap
     : { projectName: '', pages: [] };
+
+  if (aggregatedPageOutputs.length === 0) {
+    const firstErr = pageErrors.length > 0 ? pageErrors[0].error : '未知错误';
+    throw new Error(`所有页面生成失败: ${firstErr}`);
+  }
 
   const document = assemblePrd(sitemap, aggregatedPageOutputs, {
     projectName: prdConfig.projectName || sitemap.projectName || '未命名项目',
