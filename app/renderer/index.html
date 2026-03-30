@@ -4,20 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Axure to Markdown</title>
-    <!-- 基础样式入口 by AI.Coding，具体样式文件将在后续任务补充。 -->
+    <!-- 引入 Google Fonts (Bricolage Grotesque 和 Plus Jakarta Sans) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <!-- 应用主布局 by AI.Coding：左侧为导航区域，右侧为内容渲染区域。 -->
+    <!-- 应用主布局：左侧为导航区域，右侧为内容渲染区域。 -->
     <div id="app">
       <aside class="layout-sidebar">
         <header class="layout-sidebar__header">
-          <h1>Axure to Markdown</h1>
+          <div class="logo-icon"></div>
+          <h1>Axure2MD</h1>
         </header>
         <nav class="layout-sidebar__nav">
-          <a href="#generate" class="nav-item" data-route="#generate">📝 生成 PRD</a>
-          <a href="#history" class="nav-item" data-route="#history">📋 历史记录</a>
-          <a href="#settings" class="nav-item" data-route="#settings">⚙️ 设置</a>
+          <a href="#generate" class="nav-item" data-route="#generate">
+            <span class="nav-icon">✦</span> <span>生成 PRD</span>
+          </a>
+          <a href="#history" class="nav-item" data-route="#history">
+            <span class="nav-icon">◒</span> <span>历史记录</span>
+          </a>
+          <a href="#settings" class="nav-item" data-route="#settings">
+            <span class="nav-icon">⎈</span> <span>设置</span>
+          </a>
         </nav>
         <footer class="layout-sidebar__footer" id="app-footer">
           <!-- 底部引擎状态由 app.js 填充 -->
@@ -31,10 +41,10 @@
     <!-- 全局模态框容器 -->
     <div id="modal-container"></div>
 
-    <!-- 渲染进程脚本入口 by AI.Coding，具体 SPA 逻辑将在后续任务补充。 -->
+    <!-- 渲染进程脚本入口 -->
     <script src="./pages/generate.js"></script>
     <script src="./pages/history.js"></script>
     <script src="./pages/settings.js"></script>
     <script src="./app.js"></script>
   </body>
-  </html>
+</html>

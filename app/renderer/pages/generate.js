@@ -1,5 +1,5 @@
 /**
- * 4步生成向导页面 by AI.Coding
+ * 4步生成向导页面
  */
 
 (function() {
@@ -93,20 +93,26 @@
       <div class="step-nav">
         ${[1, 2, 3, 4].map(i => `
           <div class="step-item ${state.step === i ? 'active' : ''} ${state.step > i ? 'completed' : ''}" onclick="window.GeneratePage.goToStep(${i})">
-            <div class="step-circle">${state.step > i ? '✓' : i}</div>
+            <div class="step-circle">${state.step > i ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : i}</div>
             <div class="step-label">${getStepName(i)}</div>
           </div>
         `).join('')}
       </div>
 
       <div class="step-content ${state.step === 1 ? 'active' : ''}" id="step1-content">
-        <div class="card">
-          <div class="card-title">原型来源</div>
-          <div class="form-group">
-            <label class="form-label">Axure 原型在线链接或本地目录路径</label>
-            <input type="text" class="form-control" id="generate-url" placeholder="https://..." value="${escapeHtml(state.url)}">
+        <div class="card" style="max-width: 800px;">
+          <div class="card-title">
+            <span style="opacity:0.5; margin-right:8px;">01</span> 原型来源
           </div>
-          <button class="btn btn-primary" id="btn-parse">解析原型</button>
+          <div class="form-group mt-md">
+            <label class="form-label" style="display:flex; justify-content:space-between;">
+              <span>Axure 原型在线链接或本地目录路径</span>
+            </label>
+            <div style="display:flex; gap:12px;">
+              <input type="text" class="form-control" id="generate-url" placeholder="例如：https://sharecloud.seeyoncloud.com/..." value="${escapeHtml(state.url)}">
+              <button class="btn btn-primary" id="btn-parse" style="min-width:120px;">解析原型</button>
+            </div>
+          </div>
           
           <div id="parse-result" class="mt-md"></div>
         </div>
@@ -183,7 +189,10 @@
       state.pages = res.pages; // [{id, name, path}, ...]
       
       resultDiv.innerHTML = `
-        <div class="text-success mt-sm">✅ 解析成功，共发现 ${res.pageCount} 个页面。</div>
+        <div class="text-success mt-sm" style="display:flex; align-items:center; gap:8px; padding:12px; background:rgba(16, 185, 129, 0.1); border-radius:6px; border:1px solid rgba(16, 185, 129, 0.2);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          解析成功，共发现 ${res.pageCount} 个页面。
+        </div>
       `;
       
       setTimeout(() => {
@@ -193,7 +202,10 @@
       
     } catch (error) {
       resultDiv.innerHTML = `
-        <div class="text-danger mt-sm">❌ 解析失败: ${escapeHtml(error.message || String(error))}</div>
+        <div class="text-danger mt-sm" style="display:flex; align-items:center; gap:8px; padding:12px; background:rgba(239, 68, 68, 0.1); border-radius:6px; border:1px solid rgba(239, 68, 68, 0.2);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+          解析失败: ${escapeHtml(error.message || String(error))}
+        </div>
       `;
     } finally {
       btn.disabled = false;
@@ -218,15 +230,17 @@
       }
       
       let html = `
-        <div class="card">
-          <div class="card-title">选择驱动引擎</div>
+        <div class="card" style="max-width: 800px;">
+          <div class="card-title">
+            <span style="opacity:0.5; margin-right:8px;">02</span> 选择驱动引擎
+          </div>
           
-          <div class="form-group">
-            <label class="form-label">
+          <div class="form-group mt-md" style="padding: 16px; border: 1px solid ${state.engineMode === 'api' ? 'var(--color-primary)' : 'var(--color-border)'}; border-radius: var(--border-radius-sm); background: ${state.engineMode === 'api' ? 'rgba(255,255,255,0.02)' : 'transparent'}; transition: all 0.2s;">
+            <label class="form-label" style="display:flex; align-items:center; margin-bottom:0; cursor:pointer;">
               <input type="radio" name="engineMode" value="api" ${state.engineMode === 'api' ? 'checked' : ''} onchange="window.GeneratePage.setEngineMode('api')">
-              通过 API 调用
+              <span style="font-weight:600; font-size:15px;">通过 API 调用</span>
             </label>
-            <div class="mt-sm ml-lg" style="display: ${state.engineMode === 'api' ? 'block' : 'none'}">
+            <div class="mt-md" style="display: ${state.engineMode === 'api' ? 'block' : 'none'}; padding-left: 28px;">
               ${profiles.length === 0 
                 ? '<div class="text-muted mb-sm">暂无配置，请先在设置中添加</div>' 
                 : `<select class="form-control" id="profile-select" onchange="window.GeneratePage.setProfile(this.value)">
@@ -240,17 +254,17 @@
             </div>
           </div>
           
-          <div class="form-group mt-lg">
-            <label class="form-label">
+          <div class="form-group mt-md" style="padding: 16px; border: 1px solid ${state.engineMode === 'cli' ? 'var(--color-primary)' : 'var(--color-border)'}; border-radius: var(--border-radius-sm); background: ${state.engineMode === 'cli' ? 'rgba(255,255,255,0.02)' : 'transparent'}; transition: all 0.2s;">
+            <label class="form-label" style="display:flex; align-items:center; margin-bottom:0; cursor:pointer;">
               <input type="radio" name="engineMode" value="cli" ${state.engineMode === 'cli' ? 'checked' : ''} onchange="window.GeneratePage.setEngineMode('cli')">
-              通过本地 CLI 调用
+              <span style="font-weight:600; font-size:15px;">通过本地 CLI 调用</span>
             </label>
-            <div class="mt-sm ml-lg" style="display: ${state.engineMode === 'cli' ? 'block' : 'none'}">
+            <div class="mt-md" style="display: ${state.engineMode === 'cli' ? 'block' : 'none'}; padding-left: 28px;">
               <select class="form-control" id="cli-select" onchange="window.GeneratePage.setCli(this.value)">
                 <option value="">-- 请选择检测到的工具 --</option>
                 ${Object.entries(cliStatus).map(([name, isOk]) => `
                   <option value="${name}" ${!isOk ? 'disabled' : ''} ${state.selectedCli === name ? 'selected' : ''}>
-                    ${name} ${isOk ? '✅' : '❌未安装'}
+                    ${name} ${isOk ? '✓ (已安装)' : '✕ (未安装)'}
                   </option>
                 `).join('')}
               </select>
@@ -258,7 +272,7 @@
           </div>
           
           <div class="mt-lg">
-            <button class="btn btn-primary" onclick="window.GeneratePage.nextToStep3()">下一步</button>
+            <button class="btn btn-primary" onclick="window.GeneratePage.nextToStep3()">下一步：填写需求</button>
           </div>
         </div>
       `;
@@ -307,19 +321,24 @@
     const step3 = document.getElementById('step3-content');
     
     let html = `
-      <div class="card">
-        <div class="card-title">PRD 需求与范围</div>
-        
-        <div class="form-group">
-          <label class="form-label">需求描述（可选，告诉 AI 你想要什么格式或侧重什么功能）</label>
-          <textarea class="form-control" id="prd-query" placeholder="例如：重点写一下登录和注册的逻辑...">${escapeHtml(state.query)}</textarea>
+      <div class="card" style="max-width: 800px;">
+        <div class="card-title">
+          <span style="opacity:0.5; margin-right:8px;">03</span> PRD 需求与范围
         </div>
         
-        <div class="form-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <label class="form-label" style="margin-bottom:0;">选择要生成的页面</label>
-            <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 12px;" onclick="window.GeneratePage.aiSelectPages()">
-              ✨ AI 智能筛选
+        <div class="form-group mt-md">
+          <label class="form-label" style="font-weight:600;">需求描述 <span style="font-weight:400; opacity:0.6; font-size:12px; margin-left:8px;">告诉 AI 你想要什么格式或侧重什么功能（可选）</span></label>
+          <textarea class="form-control" id="prd-query" placeholder="例如：重点写一下登录和注册的逻辑，要求包含异常流程的设计...">${escapeHtml(state.query)}</textarea>
+        </div>
+        
+        <div class="form-group mt-lg">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+            <label class="form-label" style="margin-bottom:0; font-weight:600;">
+              选择要生成的页面
+              <div class="text-muted mt-sm" style="font-size: 12px; font-weight:400;">已选择 <span id="sel-count" style="color:var(--color-primary); font-weight:600;">${state.selectedPages.length}</span> / ${state.pages.length} 页</div>
+            </label>
+            <button class="btn btn-secondary btn-sm" style="padding: 6px 12px; border-style:dashed;" onclick="window.GeneratePage.aiSelectPages()">
+              <span style="margin-right:6px;">✨</span> AI 智能筛选
             </button>
           </div>
           
@@ -328,15 +347,14 @@
               <label class="check-item">
                 <input type="checkbox" value="${p.id}" onchange="window.GeneratePage.togglePageSelection(this)"
                   ${state.selectedPages.includes(p.id) ? 'checked' : ''}>
-                <span>${escapeHtml(p.name)}</span>
+                <span style="font-family:var(--font-mono); font-size:13px; opacity:0.9;">${escapeHtml(p.name)}</span>
               </label>
             `).join('')}
           </div>
-          <div class="text-muted mt-sm" style="font-size: 12px;">已选择 <span id="sel-count">${state.selectedPages.length}</span> / ${state.pages.length} 页</div>
         </div>
 
-        <div class="mt-lg">
-          <button class="btn btn-primary" onclick="window.GeneratePage.startGenerate()">开始生成</button>
+        <div class="mt-xl" style="padding-top:16px; border-top:1px dashed var(--color-border);">
+          <button class="btn btn-primary" style="padding: 12px 32px; font-size:16px;" onclick="window.GeneratePage.startGenerate()">开始生成 PRD</button>
         </div>
       </div>
     `;
@@ -364,7 +382,7 @@
     state.query = query;
     const btn = document.querySelector('.btn-sm');
     btn.disabled = true;
-    btn.textContent = '筛选中...';
+    btn.innerHTML = '<span style="margin-right:6px;">⏳</span> 筛选中...';
     
     try {
       // 构造当前引擎配置信息给主进程
@@ -376,6 +394,10 @@
         engineConfig
       });
       
+      // Defensive: ensure IPC result is an array before assigning
+      if (!Array.isArray(selectedIds)) {
+        throw new Error('AI 筛选返回了非预期格式');
+      }
       state.selectedPages = selectedIds;
       renderStep3(); // 重新渲染列表以更新选中状态
       
@@ -384,7 +406,7 @@
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = '✨ AI 智能筛选';
+        btn.innerHTML = '<span style="margin-right:6px;">✨</span> AI 智能筛选';
       }
     }
   }
@@ -475,9 +497,11 @@
     
     if (state.isGenerating) {
       step4.innerHTML = `
-        <div class="card">
-          <div class="card-title">生成中...</div>
-          <div class="mb-sm text-primary" id="curr-page-name">准备就绪...</div>
+        <div class="card" style="max-width: 800px; border-color:var(--color-border-focus);">
+          <div class="card-title">
+             <span style="opacity:0.5; margin-right:8px;">04</span> 生成中...
+          </div>
+          <div class="mb-sm text-primary" id="curr-page-name" style="font-family:var(--font-mono); font-size:13px;">准备就绪...</div>
           
           <div class="progress-container">
             <div class="progress-bar-bg">
@@ -491,16 +515,16 @@
           
           <div class="terminal-preview mt-md" id="term-preview"></div>
           
-          <div class="mt-lg">
-            <button class="btn btn-danger" onclick="window.GeneratePage.cancelGen()">取消</button>
+          <div class="mt-lg text-right" style="text-align: right;">
+            <button class="btn btn-danger" onclick="window.GeneratePage.cancelGen()">取消生成</button>
           </div>
         </div>
       `;
     } else if (state.error) {
       step4.innerHTML = `
-        <div class="card">
+        <div class="card" style="max-width: 800px; border-color:rgba(239, 68, 68, 0.4);">
           <div class="card-title text-danger">生成失败 / 取消</div>
-          <div class="mt-sm">${escapeHtml(state.error.message || String(state.error))}</div>
+          <div class="mt-md" style="font-family:var(--font-mono); font-size:13px; color:var(--color-text-secondary); background:rgba(0,0,0,0.3); padding:16px; border-radius:6px;">${escapeHtml(state.error.message || String(state.error))}</div>
           <div class="mt-lg">
             <button class="btn btn-primary" onclick="window.GeneratePage.goToStep(3)">返回重试</button>
           </div>
@@ -509,15 +533,30 @@
     } else if (state.stats) {
       const failed = (state.stats.selectedPages || 0) - (state.stats.processedPages || 0);
       step4.innerHTML = `
-        <div class="card">
-          <div class="card-title text-success">🎉 生成完成</div>
-          <div class="mt-sm">
-            <p>总处理页面：${state.stats.selectedPages || 0}</p>
-            <p>成功生成：${state.stats.processedPages || 0}</p>
-            <p>失败页面：${failed}</p>
-            <p>耗时：${((state.stats.elapsedMs || 0) / 1000).toFixed(1)} 秒</p>
+        <div class="card" style="max-width: 800px; border-color:rgba(16, 185, 129, 0.3);">
+          <div class="card-title text-success">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            生成完成
           </div>
-          <div class="mt-lg" style="display:flex; gap: 8px;">
+          <div class="mt-md" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; background:rgba(255,255,255,0.02); padding:20px; border-radius:8px;">
+            <div>
+              <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">总处理页面</div>
+              <div style="font-size:24px; font-weight:600; font-family:var(--font-heading);">${state.stats.selectedPages || 0}</div>
+            </div>
+            <div>
+              <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">成功生成</div>
+              <div style="font-size:24px; font-weight:600; font-family:var(--font-heading); color:var(--color-success);">${state.stats.processedPages || 0}</div>
+            </div>
+            <div>
+              <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">失败页面</div>
+              <div style="font-size:24px; font-weight:600; font-family:var(--font-heading); color:${failed > 0 ? 'var(--color-danger)' : 'var(--color-text-primary)'};">${failed}</div>
+            </div>
+            <div>
+              <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">总耗时</div>
+              <div style="font-size:24px; font-weight:600; font-family:var(--font-heading);">${((state.stats.elapsedMs || 0) / 1000).toFixed(1)} <span style="font-size:14px; font-weight:400;">秒</span></div>
+            </div>
+          </div>
+          <div class="mt-lg" style="display:flex; gap: 12px; padding-top:20px; border-top:1px solid var(--color-border);">
             <button class="btn btn-primary" onclick="window.GeneratePage.openOutDir()">打开输出目录</button>
             <a href="#history" class="btn btn-secondary">查看历史</a>
             <button class="btn btn-secondary" onclick="window.GeneratePage.reset()">再来一次</button>

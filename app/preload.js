@@ -2,31 +2,48 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 /**
+ * 统一 IPC 结果解包：主进程的 registerIpcHandler 在异常时返回
+ * { error, message } 对象而非抛异常，此处将其还原为 throw。
+ */
+function unwrapIpcResult(result) {
+  if (result && typeof result === 'object' && result.error && result.message) {
+    const err = new Error(result.message);
+    err.code = result.error;
+    throw err;
+  }
+  return result;
+}
+
+/**
  * 调用主进程解析 Axure 原型 by AI.Coding
  */
-function convert(source) {
-  return ipcRenderer.invoke('axure:convert', { source });
+async function convert(source) {
+  const result = await ipcRenderer.invoke('axure:convert', { source });
+  return unwrapIpcResult(result);
 }
 
 /**
  * 调用主进程执行 AI 页面筛选 by AI.Coding
  */
-function selectPages(params) {
-  return ipcRenderer.invoke('axure:select-pages', params);
+async function selectPages(params) {
+  const result = await ipcRenderer.invoke('axure:select-pages', params);
+  return unwrapIpcResult(result);
 }
 
 /**
  * 调用主进程开始生成 PRD by AI.Coding
  */
-function generate(params) {
-  return ipcRenderer.invoke('axure:generate', params);
+async function generate(params) {
+  const result = await ipcRenderer.invoke('axure:generate', params);
+  return unwrapIpcResult(result);
 }
 
 /**
  * 调用主进程取消当前生成任务 by AI.Coding
  */
-function cancelGenerate(sessionId) {
-  return ipcRenderer.invoke('axure:cancel', { sessionId });
+async function cancelGenerate(sessionId) {
+  const result = await ipcRenderer.invoke('axure:cancel', { sessionId });
+  return unwrapIpcResult(result);
 }
 
 /**
@@ -43,71 +60,81 @@ function onProgress(callback) {
 /**
  * 获取全部 LLM 配置 by AI.Coding
  */
-function listProfiles() {
-  return ipcRenderer.invoke('profile:list');
+async function listProfiles() {
+  const result = await ipcRenderer.invoke('profile:list');
+  return unwrapIpcResult(result);
 }
 
 /**
  * 新建或更新 LLM 配置 by AI.Coding
  */
-function saveProfile(profile) {
-  return ipcRenderer.invoke('profile:save', profile);
+async function saveProfile(profile) {
+  const result = await ipcRenderer.invoke('profile:save', profile);
+  return unwrapIpcResult(result);
 }
 
 /**
  * 删除指定 LLM 配置 by AI.Coding
  */
-function deleteProfile(id) {
-  return ipcRenderer.invoke('profile:delete', { id });
+async function deleteProfile(id) {
+  const result = await ipcRenderer.invoke('profile:delete', { id });
+  return unwrapIpcResult(result);
 }
 
 /**
  * 设置默认 LLM 配置 by AI.Coding
  */
-function setDefaultProfile(id) {
-  return ipcRenderer.invoke('profile:set-default', { id });
+async function setDefaultProfile(id) {
+  const result = await ipcRenderer.invoke('profile:set-default', { id });
+  return unwrapIpcResult(result);
 }
 
 /**
  * 查询历史记录列表 by AI.Coding
  */
-function listHistory(search) {
-  return ipcRenderer.invoke('history:list', { search });
+async function listHistory(search) {
+  const result = await ipcRenderer.invoke('history:list', { search });
+  return unwrapIpcResult(result);
 }
 
 /**
  * 删除指定历史记录 by AI.Coding
  */
-function deleteHistory(id) {
-  return ipcRenderer.invoke('history:delete', { id });
+async function deleteHistory(id) {
+  const result = await ipcRenderer.invoke('history:delete', { id });
+  return unwrapIpcResult(result);
 }
 
 /**
  * 打开指定历史记录的输出目录 by AI.Coding
  */
-function openHistoryDir(id) {
-  return ipcRenderer.invoke('history:open-dir', { id });
+async function openHistoryDir(id) {
+  const result = await ipcRenderer.invoke('history:open-dir', { id });
+  return unwrapIpcResult(result);
 }
 
 /**
  * 检测本机 CLI 工具可用性 by AI.Coding
  */
-function detectCli() {
-  return ipcRenderer.invoke('cli:detect');
+async function detectCli() {
+  const result = await ipcRenderer.invoke('cli:detect');
+  return unwrapIpcResult(result);
 }
 
 /**
  * 强制重新检测本机 CLI 工具 by AI.Coding
  */
-function redetectCli() {
-  return ipcRenderer.invoke('cli:redetect');
+async function redetectCli() {
+  const result = await ipcRenderer.invoke('cli:redetect');
+  return unwrapIpcResult(result);
 }
 
 /**
  * 获取应用基础信息 by AI.Coding
  */
-function getAppInfo() {
-  return ipcRenderer.invoke('app:info');
+async function getAppInfo() {
+  const result = await ipcRenderer.invoke('app:info');
+  return unwrapIpcResult(result);
 }
 
 // 暴露安全的 IPC API 到渲染进程，确保每个 channel 对应单一函数入口。

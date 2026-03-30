@@ -1,5 +1,5 @@
 /**
- * 历史记录页 by AI.Coding
+ * 历史记录页
  */
 
 (function() {
@@ -63,7 +63,7 @@
     if (!list) return;
 
     if (records.length === 0) {
-      list.innerHTML = `<div class="text-muted">暂无历史记录</div>`;
+      list.innerHTML = `<div class="text-muted" style="text-align:center; padding: 40px; border: 1px dashed var(--color-border); border-radius: var(--border-radius-md);">暂无历史记录</div>`;
       return;
     }
 
@@ -85,20 +85,20 @@
       return `
         <div class="card history-card">
           <div class="history-info">
-            <div class="card-title">${escapeHtml(queryPreview)}</div>
+            <div class="card-title" style="margin-bottom:4px;">${escapeHtml(queryPreview)}</div>
             <div class="history-meta">
-              <span>⏰ ${timeStr}</span> | 
-              <span>📄 共 ${pageCount} 页</span> |
-              <span>⚙️ ${escapeHtml(engineText)}</span>
+              <span><span style="opacity:0.6;margin-right:4px;">⏱</span>${timeStr}</span> &bull; 
+              <span><span style="opacity:0.6;margin-right:4px;">📄</span>共 ${pageCount} 页</span> &bull; 
+              <span><span style="opacity:0.6;margin-right:4px;">⚙️</span>${escapeHtml(engineText)}</span>
             </div>
-            <div class="history-meta">
-              <span>🔗 源：${escapeHtml(r.sourceUrl || '未知URL')}</span>
+            <div class="history-meta mt-sm" style="font-family:var(--font-mono); font-size:12px;">
+              <span style="opacity:0.5;margin-right:6px;">🔗</span>${escapeHtml(r.sourceUrl || '未知URL')}
             </div>
           </div>
           <div class="history-actions">
             <button class="btn btn-primary btn-sm" onclick="window.HistoryPage.openDir('${r.id}')">打开目录</button>
             <button class="btn btn-secondary btn-sm" onclick="window.HistoryPage.regenerate('${r.id}')">重新生成</button>
-            <button class="btn btn-danger btn-sm" onclick="window.HistoryPage.deleteRecord('${r.id}')">删除</button>
+            <button class="btn btn-secondary btn-sm" style="color:var(--color-danger); border-color:transparent;" onclick="window.HistoryPage.deleteRecord('${r.id}')">删除</button>
           </div>
         </div>
       `;

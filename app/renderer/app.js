@@ -1,5 +1,5 @@
 /**
- * SPA 路由管理器及全局状态 by AI.Coding
+ * SPA 路由管理器及全局状态
  * 监听 URL hash 变化，切换页面组件
  */
 
@@ -75,8 +75,8 @@
       }
 
       appFooter.innerHTML = `
-        <div>v${appInfo.version}</div>
-        <div class="mt-xs">默认引擎: <span style="color: var(--color-primary)">${engineText}</span></div>
+        <div style="margin-bottom: 4px; opacity: 0.8;">v${appInfo.version}</div>
+        <div class="mt-xs">默认引擎: <span style="color: var(--color-text-primary); font-weight: 600;">${engineText}</span></div>
       `;
     } catch (error) {
       console.error('获取底部状态失败:', error);
