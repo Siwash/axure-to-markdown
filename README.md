@@ -119,17 +119,30 @@ npm run electron:dev
 npm run dist
 ```
 
+#### 下载安装
+
+前往 [GitHub Releases](https://github.com/Siwash/axure-to-markdown/releases) 下载对应平台的安装包：
+
+| 文件 | 平台 | 说明 |
+|------|------|------|
+| `Axure-to-Markdown-x.x.x-arm64.dmg` | macOS (Apple Silicon) | M1 / M2 / M3 / M4 芯片的 Mac |
+| `Axure-to-Markdown-x.x.x-x64.dmg` | macOS (Intel) | 2020 年及更早的 Intel 芯片 Mac |
+| `Axure-to-Markdown-Setup-x.x.x.exe` | Windows (x64) | 64 位 Windows 系统 |
+
+> **如何确认 Mac 芯片类型？** 点击左上角  → 关于本机 → 查看"芯片"或"处理器"：显示 Apple M* 选 arm64，显示 Intel 选 x64。
+
+安装后启动即可使用，无需安装 Node.js。客户端内置 electron-updater，会自动检测新版本并提示更新。
+
 #### CI/CD 自动构建
 
-推送 `v*` 标签自动触发 GitHub Actions 构建，同时产出 macOS (.dmg) 和 Windows (.exe) 安装包：
+推送 `v*` 标签自动触发 GitHub Actions 构建，产出 macOS (arm64 + x64) 和 Windows 安装包：
 
 ```bash
-# 打标签触发 Release
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-构建产物自动上传到 GitHub Releases，客户端内置 electron-updater 会自动检测并提示更新。
+构建产物自动上传到 GitHub Releases。
 
 #### 桌面客户端架构
 
