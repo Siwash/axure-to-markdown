@@ -1,7 +1,7 @@
 // 主进程入口 by AI.Coding
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const Store = require('electron-store');
+const Store = require('electron-store').default || require('electron-store');
 const { convert } = require('../src/api');
 const { buildConfig, PRD_DEFAULTS } = require('../src/client/config');
 const { selectPages, orchestrate } = require('../src/client/orchestrator');
