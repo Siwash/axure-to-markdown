@@ -1,0 +1,16 @@
+{
+  "source": {
+    "url": "${E2E_CONFIG_SOURCE}"
+  },
+  "llm": {
+    "provider": "openai",
+    "model": "file-model",
+    "apiKey": "${E2E_PRD_API_KEY}"
+  },
+  "output": {
+    "dir": "./file-output"
+  },
+  "advanced": {
+    "concurrency": 7
+  }
+}

@@ -4,14 +4,18 @@
   "description": "将 Axure RP 发布的 HTML 原型自动转换为结构化 Markdown 文档，供 AI 消费",
   "main": "index.js",
   "bin": {
-    "axure-to-markdown": "index.js"
+    "axure-to-markdown": "index.js",
+    "axure-prd": "bin/axure-prd.js"
   },
   "scripts": {
     "start": "node index.js",
     "parse": "node index.js",
-    "test": "node test/run.js"
+    "test": "node test/run.js",
+    "prd": "node bin/axure-prd.js",
+    "test:e2e": "node test/e2e/run-e2e.js"
   },
   "dependencies": {
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0",
+    "js-yaml": "^4.1.0"
   }
 }
