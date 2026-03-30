@@ -32,6 +32,12 @@ const MOCK_CONVERT_RESULT = {
   pages: MOCK_PAGES,
   pageCount: MOCK_PAGES.length,
   indexContent: '# 站点地图\n- 首页\n- 登录页\n- 注册页',
+  parsedDir: '/mock/parsed/output',
+};
+const MOCK_CLI_STATUS = {
+  claude: true,
+  codex: false,
+  opencode: true,
 };
 const MOCK_AI_SELECTED = ['首页', '登录页'];
 const MOCK_GENERATE_STATS = {
@@ -95,7 +101,7 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
    */
   async function mockAllIpcHandlers() {
     await electronApp.evaluate(({ ipcMain, BrowserWindow }, mockData) => {
-      const { convertResult, aiSelected, generateStats, sessionId } = mockData;
+      const { convertResult, aiSelected, generateStats, cliStatus } = mockData;
 
       // Mock axure:convert — 返回固定解析结果
       ipcMain.removeHandler('axure:convert');
@@ -141,14 +147,39 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
       ipcMain.removeHandler('axure:cancel');
       ipcMain.handle('axure:cancel', async () => ({ ok: true }));
 
+      // Mock axure:open-parsed-dir
+      ipcMain.removeHandler('axure:open-parsed-dir');
+      ipcMain.handle('axure:open-parsed-dir', async () => ({ ok: true }));
+
       // Mock history:open-dir — 不打开真实目录
       ipcMain.removeHandler('history:open-dir');
       ipcMain.handle('history:open-dir', async () => ({ ok: true }));
+
+      // Mock settings output dir 相关接口
+      ipcMain.removeHandler('settings:get-output-dir');
+      ipcMain.handle('settings:get-output-dir', async () => ({ outputDir: '' }));
+
+      ipcMain.removeHandler('settings:set-output-dir');
+      ipcMain.handle('settings:set-output-dir', async () => ({ ok: true }));
+
+      ipcMain.removeHandler('settings:select-output-dir');
+      ipcMain.handle('settings:select-output-dir', async () => ({ outputDir: '/mock/selected/output' }));
+
+      // Mock cli:open-terminal
+      ipcMain.removeHandler('cli:open-terminal');
+      ipcMain.handle('cli:open-terminal', async () => ({ ok: true, command: 'claude -p "mock"' }));
+
+      // Mock cli:detect / cli:redetect
+      ipcMain.removeHandler('cli:detect');
+      ipcMain.handle('cli:detect', async () => cliStatus);
+
+      ipcMain.removeHandler('cli:redetect');
+      ipcMain.handle('cli:redetect', async () => cliStatus);
     }, {
       convertResult: MOCK_CONVERT_RESULT,
       aiSelected: MOCK_AI_SELECTED,
       generateStats: MOCK_GENERATE_STATS,
-      sessionId: MOCK_SESSION_ID,
+      cliStatus: MOCK_CLI_STATUS,
     });
   }
 
@@ -199,6 +230,8 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
     await clickSidebarRoute('#generate');
     await page.evaluate(() => window.GeneratePage.reset());
     await expect(page.locator('#step1-content.active')).toBeVisible();
+    await expect(page.locator('#generate-url')).toBeVisible();
+    await expect(page.locator('#btn-parse')).toBeVisible();
   }
 
   // =========================================================================
@@ -249,7 +282,7 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
     await expect(page.locator('#profile-modal')).toBeVisible();
 
     await page.locator('#p-name').fill(TEST_PROFILE.name);
-    await page.locator('#p-provider').selectOption(TEST_PROFILE.provider);
+    await page.locator(`.provider-option[data-value="${TEST_PROFILE.provider}"]`).click();
     await page.locator('#p-model').fill(TEST_PROFILE.model);
     await page.locator('#p-apiKey').fill(TEST_PROFILE.apiKey);
     await page.locator('#p-baseUrl').fill(TEST_PROFILE.baseUrl);
@@ -272,7 +305,7 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
 
     // 输入任意 URL（mock 不会真实请求）
     await page.locator('#generate-url').fill('https://mock.axshare.com/demo');
-    await page.locator('#btn-parse').click();
+    await page.locator('#btn-parse').click({ force: true });
 
     // 验证解析结果显示
     await expect(page.locator('#parse-result')).toContainText('解析成功', { timeout: 5000 });
@@ -288,9 +321,8 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
     // 选择 API 模式（默认应该已选中）
     await page.locator('input[name="engineMode"][value="api"]').check();
 
-    // 验证之前创建的 profile 出现在下拉框
-    await expect(page.locator('#profile-select')).toBeVisible();
-    await expect(page.locator('#profile-select')).toContainText(TEST_PROFILE.name);
+    // 验证之前创建的 profile 以平铺卡片展示
+    await expect(page.locator('#step2-content.active .profile-option', { hasText: TEST_PROFILE.name }).first()).toBeVisible();
 
     // 点击下一步
     await page.locator('#step2-content .btn.btn-primary', { hasText: '下一步' }).click();
@@ -398,7 +430,7 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
 
     await resetGenerateWizard();
     await page.locator('#generate-url').fill('https://invalid.example.com');
-    await page.locator('#btn-parse').click();
+    await page.locator('#btn-parse').click({ force: true });
 
     // 验证错误信息显示
     await expect(page.locator('#parse-result')).toContainText('解析失败', { timeout: 5000 });
@@ -415,7 +447,7 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
     // 先走到 Step 3
     await resetGenerateWizard();
     await page.locator('#generate-url').fill('https://mock.axshare.com/demo');
-    await page.locator('#btn-parse').click();
+    await page.locator('#btn-parse').click({ force: true });
     await expect(page.locator('#step2-content.active')).toBeVisible({ timeout: 3000 });
     await page.locator('#step2-content .btn.btn-primary', { hasText: '下一步' }).click();
     await expect(page.locator('#step3-content.active')).toBeVisible();
@@ -479,7 +511,7 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
     // 先把页面重新选上
     await resetGenerateWizard();
     await page.locator('#generate-url').fill('https://mock.axshare.com/demo');
-    await page.locator('#btn-parse').click();
+    await page.locator('#btn-parse').click({ force: true });
     await expect(page.locator('#step2-content.active')).toBeVisible({ timeout: 3000 });
     await page.locator('#step2-content .btn.btn-primary', { hasText: '下一步' }).click();
     await expect(page.locator('#step3-content.active')).toBeVisible();
@@ -538,9 +570,103 @@ test.describe('Electron 桌面客户端 E2E（全离线）', () => {
     });
 
     // 不输入任何内容直接点击解析
-    await page.locator('#btn-parse').click();
+    await page.locator('#btn-parse').click({ force: true });
 
     // 仍停留在 Step 1
     await expect(page.locator('#step1-content.active')).toBeVisible();
+  });
+
+  // =========================================================================
+  // 新功能回归测试
+  // =========================================================================
+
+  test('测试16: Feature 1 — Step2 显示解析目录信息条', async () => {
+    await resetGenerateWizard();
+    await page.locator('#generate-url').fill('https://mock.axshare.com/demo');
+    await page.locator('#btn-parse').click({ force: true });
+
+    await expect(page.locator('#step2-content.active')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('#parsed-info')).toBeVisible();
+    await expect(page.locator('#parsed-info')).toContainText(String(MOCK_PAGES.length));
+    await expect(page.locator('#btn-open-parsed-dir')).toBeVisible();
+  });
+
+  test('测试17: Feature 2 — 设置页显示输出目录配置区', async () => {
+    await clickSidebarRoute('#settings');
+
+    await expect(page.locator('#output-dir-section')).toBeVisible();
+    await expect(page.locator('#output-dir-path')).toBeVisible();
+    await expect(page.locator('#btn-browse-output-dir')).toBeVisible();
+    await expect(page.locator('#btn-reset-output-dir')).toBeVisible();
+  });
+
+  test('测试18: Feature 3 — Step4 完成后显示任务列表', async () => {
+    await resetGenerateWizard();
+    await page.locator('#generate-url').fill('https://mock.axshare.com/demo');
+    await page.locator('#btn-parse').click({ force: true });
+    await expect(page.locator('#step2-content.active')).toBeVisible({ timeout: 3000 });
+    await page.locator('#step2-content .btn.btn-primary', { hasText: '下一步' }).click();
+    await expect(page.locator('#step3-content.active')).toBeVisible();
+    await page.locator('#prd-query').fill(TEST_QUERY);
+    await page.locator('#step3-content .btn-primary', { hasText: '开始生成' }).click();
+
+    await expect(page.locator('#step4-content')).toContainText('生成完成', { timeout: 10000 });
+    await expect(page.locator('#task-list')).toBeVisible();
+    await expect(page.locator('.task-item[data-status="completed"]')).toHaveCount(MOCK_AI_SELECTED.length);
+  });
+
+  test('测试19: Feature 4 — CLI 模式 Step4 显示终端唤起区', async () => {
+    await resetGenerateWizard();
+    await page.locator('#generate-url').fill('https://mock.axshare.com/demo');
+    await page.locator('#btn-parse').click({ force: true });
+    await expect(page.locator('#step2-content.active')).toBeVisible({ timeout: 3000 });
+
+    await page.locator('input[name="engineMode"][value="cli"]').check();
+    await page.locator('.cli-option[data-tool="claude"]').click();
+    await page.locator('#step2-content .btn.btn-primary', { hasText: '下一步' }).click();
+    await expect(page.locator('#step3-content.active')).toBeVisible();
+    await page.locator('#prd-query').fill(TEST_QUERY);
+    await page.locator('#step3-content .btn-primary', { hasText: '开始生成' }).click();
+
+    await expect(page.locator('#step4-content.active')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('#cli-full-prompt')).toBeVisible();
+    await expect(page.locator('#cli-files-path')).toBeVisible();
+    await expect(page.locator('#btn-launch-terminal')).toBeVisible();
+  });
+
+  test('测试20: Feature 5 — 设置弹窗使用 provider 平铺卡片', async () => {
+    await clickSidebarRoute('#settings');
+    await page.locator('button', { hasText: '新建配置' }).click();
+    await expect(page.locator('#profile-modal')).toBeVisible();
+
+    await expect(page.locator('select#p-provider')).toHaveCount(0);
+    await expect(page.locator('.provider-option')).toHaveCount(5);
+
+    const target = page.locator('.provider-option[data-value="openai"]');
+    await target.click();
+    await expect(target).toHaveClass(/active/);
+
+    await page.locator('.provider-option[data-value="claude"]').click();
+    await expect(page.locator('.provider-option[data-value="claude"]')).toHaveClass(/active/);
+    await expect(page.locator('.provider-option[data-value="openai"]')).not.toHaveClass(/active/);
+
+    await page.locator('#profile-modal .btn.btn-secondary', { hasText: '取消' }).click();
+    await expect(page.locator('#profile-modal')).toBeHidden();
+  });
+
+  test('测试21: Feature 5 — Step2 使用 profile/cli 平铺卡片', async () => {
+    await resetGenerateWizard();
+    await page.locator('#generate-url').fill('https://mock.axshare.com/demo');
+    await page.locator('#btn-parse').click({ force: true });
+
+    await expect(page.locator('#step2-content.active')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('#step2-content select')).toHaveCount(0);
+    await expect(page.locator('#step2-content.active .profile-option', { hasText: TEST_PROFILE.name }).first()).toBeVisible();
+
+    await page.locator('input[name="engineMode"][value="cli"]').check();
+    await expect(page.locator('#step2-content.active .cli-option')).toHaveCount(3);
+    await expect(page.locator('#step2-content.active .cli-option[data-tool="claude"]')).toBeVisible();
+    await expect(page.locator('#step2-content.active .cli-option[data-tool="codex"]')).toBeVisible();
+    await expect(page.locator('#step2-content.active .cli-option[data-tool="opencode"]')).toBeVisible();
   });
 });

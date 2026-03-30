@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 /**
  * 统一 IPC 结果解包：主进程的 registerIpcHandler 在异常时返回
- * { error, message } 对象而非抛异常，此处将其还原为 throw。
+ * { error, message } 对象而非抛异常，此处将其还原为 throw by AI.Coding
  */
 function unwrapIpcResult(result) {
   if (result && typeof result === 'object' && result.error && result.message) {
@@ -47,13 +47,20 @@ async function cancelGenerate(sessionId) {
 }
 
 /**
+ * 打开指定解析会话的临时目录 by AI.Coding
+ */
+async function openParsedDir(sessionId) {
+  const result = await ipcRenderer.invoke('axure:open-parsed-dir', { sessionId });
+  return unwrapIpcResult(result);
+}
+
+/**
  * 订阅主进程推送的生成进度，并返回解绑函数 by AI.Coding
  */
 function onProgress(callback) {
   const handler = (_event, data) => callback(data);
   ipcRenderer.on('axure:progress', handler);
 
-  // 返回清理函数，避免页面切换后残留重复监听器。
   return () => ipcRenderer.removeListener('axure:progress', handler);
 }
 
@@ -114,6 +121,30 @@ async function openHistoryDir(id) {
 }
 
 /**
+ * 获取用户配置的输出目录 by AI.Coding
+ */
+async function getOutputDir() {
+  const result = await ipcRenderer.invoke('settings:get-output-dir');
+  return unwrapIpcResult(result);
+}
+
+/**
+ * 持久化输出目录配置 by AI.Coding
+ */
+async function setOutputDir(outputDir) {
+  const result = await ipcRenderer.invoke('settings:set-output-dir', { outputDir });
+  return unwrapIpcResult(result);
+}
+
+/**
+ * 打开系统目录选择器并返回结果 by AI.Coding
+ */
+async function selectOutputDir() {
+  const result = await ipcRenderer.invoke('settings:select-output-dir');
+  return unwrapIpcResult(result);
+}
+
+/**
  * 检测本机 CLI 工具可用性 by AI.Coding
  */
 async function detectCli() {
@@ -130,6 +161,22 @@ async function redetectCli() {
 }
 
 /**
+ * 构建 CLI 模式的完整提示词，写入文件并返回 prompt 文本 by AI.Coding
+ */
+async function buildCliPrompt(params) {
+  const result = await ipcRenderer.invoke('cli:build-prompt', params);
+  return unwrapIpcResult(result);
+}
+
+/**
+ * 打开系统终端并准备执行本地 CLI 命令 by AI.Coding
+ */
+async function openTerminal(params) {
+  const result = await ipcRenderer.invoke('cli:open-terminal', params);
+  return unwrapIpcResult(result);
+}
+
+/**
  * 获取应用基础信息 by AI.Coding
  */
 async function getAppInfo() {
@@ -137,12 +184,12 @@ async function getAppInfo() {
   return unwrapIpcResult(result);
 }
 
-// 暴露安全的 IPC API 到渲染进程，确保每个 channel 对应单一函数入口。
 contextBridge.exposeInMainWorld('electronAPI', {
   convert,
   selectPages,
   generate,
   cancelGenerate,
+  openParsedDir,
   onProgress,
   listProfiles,
   saveProfile,
@@ -151,7 +198,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listHistory,
   deleteHistory,
   openHistoryDir,
+  getOutputDir,
+  setOutputDir,
+  selectOutputDir,
   detectCli,
   redetectCli,
+  buildCliPrompt,
+  openTerminal,
   getAppInfo,
 });

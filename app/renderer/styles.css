@@ -256,7 +256,7 @@ h1, h2, h3, h4, h5, h6 {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
+  transform: none;
 }
 
 .btn-primary {
@@ -529,6 +529,156 @@ label.form-label input[type="radio"] {
   gap: var(--spacing-sm);
 }
 
+/* 平铺选项卡片与信息摘要 by AI.Coding */
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-sm);
+}
+
+.option-tile {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.option-tile:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  background: rgba(255,255,255,0.04);
+  transform: translateY(-1px);
+}
+
+.option-tile.active {
+  border-color: var(--color-primary);
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 10px 24px rgba(0,0,0,0.18);
+}
+
+.option-tile.disabled,
+.option-tile:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.option-tile__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.option-tile__desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.provider-option-grid,
+.profile-option-grid,
+.cli-option-grid {
+  margin-top: var(--spacing-sm);
+}
+
+.info-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 16px 18px;
+  margin-bottom: var(--spacing-lg);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--border-radius-md);
+  background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+}
+
+.info-banner__title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.info-banner__text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.engine-mode-card {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+
+.engine-mode-card + .engine-mode-card {
+  margin-top: var(--spacing-md);
+}
+
+.engine-mode-card.active {
+  border-color: var(--color-primary);
+  background: rgba(255,255,255,0.03);
+}
+
+.engine-mode-card__header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0;
+  cursor: pointer;
+}
+
+.engine-mode-card__title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.engine-mode-card__body {
+  padding-left: 28px;
+  margin-top: var(--spacing-md);
+}
+
+.option-summary-card {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: 16px;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border);
+  background: rgba(255,255,255,0.02);
+}
+
+.option-summary-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.option-summary-value {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.option-summary-value--mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.option-summary-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
 /* 步骤导航条 */
 .step-nav {
   display: flex;
@@ -700,6 +850,163 @@ label.form-label input[type="radio"] {
   background: rgba(255,255,255,0.2);
 }
 
+/* Step4 任务布局 by AI.Coding */
+.step4-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+  gap: var(--spacing-lg);
+  align-items: start;
+}
+
+.step4-main .card,
+.step4-side-panel {
+  max-width: none;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-list-meta {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 12px 14px;
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-border);
+  background: rgba(255,255,255,0.02);
+}
+
+.task-item__name {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
+.task-item__status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.task-item[data-status="pending"] {
+  border-color: var(--color-border);
+}
+
+.task-item[data-status="generating"] {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.task-item[data-status="generating"] .task-item__status {
+  color: var(--color-warning);
+}
+
+.task-item[data-status="completed"] {
+  border-color: rgba(16, 185, 129, 0.28);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.task-item[data-status="completed"] .task-item__status {
+  color: var(--color-success);
+}
+
+.task-item[data-status="failed"] {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.task-item[data-status="failed"] .task-item__status {
+  color: var(--color-danger);
+}
+
+/* CLI 终端模式全宽卡片 by AI.Coding */
+.cli-terminal-card {
+  max-width: none;
+}
+
+/* CLI 执行模式切换按钮组 by AI.Coding */
+.cli-exec-toggle {
+  display: flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+}
+
+.cli-exec-toggle__btn {
+  padding: 5px 16px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.cli-exec-toggle__btn:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.cli-exec-toggle__btn.active {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-weight: 600;
+}
+
+/* CLI 提示词区域 by AI.Coding */
+.cli-prompt-section {
+  margin-bottom: var(--spacing-md);
+}
+
+.cli-prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cli-prompt-textarea {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  font-size: 13px;
+  font-family: 'Cascadia Code', 'Fira Code', var(--font-mono);
+  line-height: 1.6;
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.cli-prompt-textarea:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+}
+
+/* CLI 目录信息行 by AI.Coding */
+.cli-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  background: rgba(255,255,255,0.02);
+}
+
 /* 模态框/对话框 */
 .modal-overlay {
   position: fixed;
@@ -798,7 +1105,7 @@ label.form-label input[type="radio"] {
 .text-success { color: var(--color-success); }
 .text-muted { color: var(--color-text-muted); }
 .text-primary { color: var(--color-primary); }
-.hidden { display: none !important; }
+.hidden { display: none; }
 
 /* 动画关键帧 */
 @keyframes fade-in {

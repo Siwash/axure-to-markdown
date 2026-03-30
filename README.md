@@ -10,7 +10,7 @@
 
 ```bash
 # 在线模式 —— 直接抓取在线原型
-node index.js https://sharecloud.seeyoncloud.com/1HREH3
+node index.js https://xxx.axshare.com/demo
 
 # 指定输出目录
 node index.js https://sharecloud.xxxxxxx ./my-docs
@@ -255,7 +255,7 @@ Axure 的 JS 文件使用 IIFE + 单字母变量混淆，不是标准 JSON。
 |------|---------|
 | Axure RP 8/9/10 | ✅ |
 | axshare.com | ✅ |
-| seeyoncloud | ✅ |
+| 私有云（seeyoncloud 等） | ✅ |
 | 私有部署 | ✅ 只要能访问 |
 
 ## 依赖

@@ -1,6 +1,7 @@
 // 主进程入口 by AI.Coding
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const { spawn } = require('child_process');
 const Store = require('electron-store').default || require('electron-store');
 const { convert } = require('../src/api');
 const { buildConfig, PRD_DEFAULTS } = require('../src/client/config');
@@ -15,7 +16,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-// 保存主窗口实例，避免被垃圾回收后窗口关闭。
+const SETTINGS_OUTPUT_DIR_KEY = 'settings.outputDir';
+const HISTORY_STORE_KEY = 'history';
+
 let mainWindow;
 
 /**
@@ -34,10 +37,7 @@ function createWindow() {
     },
   });
 
-  // 加载渲染进程入口页面，后续任务会继续补充页面逻辑。
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-
-  // 开发模式默认打开调试工具，便于后续 Electron 联调。
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools();
   }
@@ -103,12 +103,104 @@ function getSession(sessions, sessionId) {
 }
 
 /**
- * 解析渲染进程发来的引擎配置 {mode, profileId, cliTool}，
- * 转换为 orchestrator 所需的 {provider, baseUrl, apiKey, model} by AI.Coding
+ * 从 store 读取自定义输出目录；空字符串代表继续走默认策略 by AI.Coding
+ */
+function getConfiguredOutputDir(store) {
+  const rawValue = store.get(SETTINGS_OUTPUT_DIR_KEY);
+  return String(rawValue || '').trim();
+}
+
+/**
+ * 保存自定义输出目录配置，并统一规范为绝对路径或空值 by AI.Coding
+ */
+function setConfiguredOutputDir(store, outputDir) {
+  const normalized = String(outputDir || '').trim();
+  store.set(SETTINGS_OUTPUT_DIR_KEY, normalized ? path.resolve(normalized) : '');
+}
+
+/**
+ * 为每次解析生成独立临时目录，便于打开目录与 CLI 复用原始索引 by AI.Coding
+ */
+function getParsedOutputDir(sessionId) {
+  return path.join(app.getPath('temp'), 'axure-to-markdown', 'parsed', sessionId);
+}
+
+/**
+ * 将解析得到的全量 markdown 写入临时目录：index.md + 每个页面的独立 .md by AI.Coding
+ */
+function writeParsedArtifacts(parsedDir, indexContent, convertResult) {
+  fs.mkdirSync(parsedDir, { recursive: true });
+  fs.writeFileSync(path.join(parsedDir, 'index.md'), indexContent, 'utf-8');
+
+  // write per-page markdown files (mirroring CLI index.js behavior)
+  if (convertResult && Array.isArray(convertResult.pages) && convertResult.filenameMap) {
+    for (const page of convertResult.pages) {
+      try {
+        const md = convertResult.generatePage(page);
+        const safeName = convertResult.filenameMap.get(page.pageName);
+        if (safeName && md) {
+          fs.writeFileSync(path.join(parsedDir, `${safeName}.md`), md, 'utf-8');
+        }
+      } catch (_e) {
+        // skip pages that fail to generate — index.md still usable
+      }
+    }
+  }
+}
+
+/**
+ * 根据设置计算本次生成的实际输出目录，自定义目录下仍按 historyId 分桶 by AI.Coding
+ */
+function resolveGenerationOutputDir(historyService, store, historyId) {
+  const configuredOutputDir = getConfiguredOutputDir(store);
+  if (!configuredOutputDir) {
+    return historyService.getOutputDir(historyId);
+  }
+
+  return path.join(path.resolve(configuredOutputDir), historyId);
+}
+
+/**
+ * 更新 store 中的历史输出目录，避免 HistoryService 默认目录覆盖自定义目录 by AI.Coding
+ */
+function updateStoredHistoryOutputDir(store, id, outputDir) {
+  const records = store.get(HISTORY_STORE_KEY);
+  if (!Array.isArray(records)) return;
+
+  const nextRecords = records.map(record => {
+    if (!record || record.id !== id) {
+      return record;
+    }
+
+    return {
+      ...record,
+      outputDir,
+    };
+  });
+
+  store.set(HISTORY_STORE_KEY, nextRecords);
+}
+
+/**
+ * 从历史记录 store 中解析真实输出目录，优先尊重自定义目录 by AI.Coding
+ */
+function getHistoryOutputDir(store, historyService, id) {
+  const records = store.get(HISTORY_STORE_KEY);
+  if (Array.isArray(records)) {
+    const target = records.find(record => record && record.id === id);
+    if (target && target.outputDir) {
+      return target.outputDir;
+    }
+  }
+
+  return historyService.getOutputDir(id);
+}
+
+/**
+ * 解析渲染进程发来的引擎配置，转换为 orchestrator 所需格式 by AI.Coding
  */
 function resolveEngineConfig(profileService, engineConfig) {
   if (!engineConfig || !engineConfig.mode) {
-    // 向后兼容：直接带 provider 的旧格式
     if (engineConfig && engineConfig.provider) {
       return { ...engineConfig };
     }
@@ -126,13 +218,12 @@ function resolveEngineConfig(profileService, engineConfig) {
     if (!cliTool) {
       throw createIpcError('VALIDATION', '未选择 CLI 工具');
     }
-    return { provider: cliTool + '-cli' };
+    return { provider: `${cliTool}-cli` };
   }
 
-  // mode === 'api'
   if (engineConfig.profileId) {
     const profiles = profileService.list();
-    const profile = profiles.find(p => p.id === engineConfig.profileId);
+    const profile = profiles.find(item => item.id === engineConfig.profileId);
     if (!profile) {
       throw createIpcError('VALIDATION', '未找到所选 LLM 配置，请检查设置');
     }
@@ -167,7 +258,6 @@ function buildPrdRuntimeConfig(profileService, engineConfig, options = {}) {
     prdConfig.outputDir = options.outputDir;
   }
 
-  // 预先实例化适配器，尽早暴露 provider 配置错误。
   createAdapter(prdConfig);
   return prdConfig;
 }
@@ -231,6 +321,116 @@ function resolveEngineMeta(engineConfig) {
     engineType: 'api',
     engineName: (engineConfig && engineConfig.name) || provider || 'unknown',
   };
+}
+
+/**
+ * 构建 CLI 模式的完整提示词：模板 + 用户需求 + 解析目录文件引导 by AI.Coding
+ */
+function buildCliFullPrompt(parsedDir, query, selectedPages) {
+  const pagesHint = Array.isArray(selectedPages) && selectedPages.length > 0
+    ? selectedPages.map(p => `- ${p}`).join('\n')
+    : '- 所有页面';
+
+  // list actual .md files in parsedDir for reference
+  let fileList = '';
+  try {
+    const files = fs.readdirSync(parsedDir).filter(f => f.endsWith('.md'));
+    fileList = files.map(f => `- ${f}`).join('\n');
+  } catch (_e) {
+    fileList = '- (未能读取目录)';
+  }
+
+  return [
+    '你是资深产品经理。我已将 Axure 原型解析为结构化 Markdown 文件，请基于这些文件为我生成 PRD（产品需求文档）。',
+    '',
+    '## 解析文件目录',
+    '',
+    `路径: ${parsedDir}`,
+    '',
+    '文件列表:',
+    fileList,
+    '',
+    '## 用户需求',
+    '',
+    query || '请分析以上页面并生成完整 PRD',
+    '',
+    '## 需要分析的页面',
+    '',
+    pagesHint,
+    '',
+    '## 输出要求',
+    '',
+    '1. 请先阅读上述目录中的 index.md 了解整体页面结构',
+    '2. 再阅读对应页面的 .md 文件获取详细结构信息',
+    '3. 为每个相关页面输出 PRD 章节，包含：',
+    '   - 功能概述（一段话描述本页面的核心功能）',
+    '   - 用户故事（作为...我想要...以便...）',
+    '   - 功能需求清单（编号列表，每条需求包含描述和验收标准）',
+    '   - 表单字段说明（如有表单：字段名、类型、校验规则、默认值）',
+    '   - 交互逻辑说明（状态流转、条件判断、页面跳转）',
+    '   - 与其他页面的关联关系',
+    '4. 使用 Markdown 格式、中文输出',
+    '5. 仅基于提供的原型信息，不要编造不存在的功能',
+  ].join('\n');
+}
+
+/**
+ * 生成 CLI 命令字符串（引用 prompt 文件），用于系统终端执行 by AI.Coding
+ */
+function buildCliCommand(cliTool, promptFilePath) {
+  if (cliTool === 'codex') {
+    return `codex exec --skip-git-repo-check -q @"${promptFilePath}" --json --full-auto`;
+  }
+  if (cliTool === 'opencode') {
+    return `opencode run "$(cat '${promptFilePath.replace(/'/g, "'\\''")}'" --format json`;
+  }
+  // claude supports -p with file reference
+  return `${cliTool} -p "$(cat '${promptFilePath.replace(/'/g, "'\\''")}')"`;
+}
+
+/**
+ * 将路径转为命令行可用的引号字符串，降低空格路径执行失败概率 by AI.Coding
+ */
+function quotePath(targetPath) {
+  return `"${String(targetPath || '').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * 根据平台启动系统终端，并在解析目录中执行 CLI 命令 by AI.Coding
+ * Windows: 生成临时 .bat 避免 cmd.exe 嵌套引号语法错误
+ */
+function launchSystemTerminal(parsedDir, command) {
+  if (process.platform === 'win32') {
+    // write a temp .bat file to avoid nested quoting issues with cmd.exe /c start /K
+    const batContent = `@echo off\r\ncd /d "${parsedDir}"\r\n${command}\r\npause\r\n`;
+    const batPath = path.join(parsedDir, '_run_cli.bat');
+    fs.writeFileSync(batPath, batContent, 'utf-8');
+
+    const child = spawn('cmd.exe', ['/c', 'start', 'cmd.exe', '/K', batPath], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    child.unref();
+    return;
+  }
+
+  if (process.platform === 'darwin') {
+    const escapedDir = String(parsedDir).replace(/'/g, "'\\''");
+    const script = `tell application "Terminal" to do script "cd '${escapedDir}' && ${command}"`;
+    const child = spawn('osascript', ['-e', script], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.unref();
+    return;
+  }
+
+  const child = spawn('x-terminal-emulator', ['-e', 'bash', '-lc', `cd ${quotePath(parsedDir)} && ${command}`], {
+    detached: true,
+    stdio: 'ignore',
+  });
+  child.unref();
 }
 
 /**
@@ -310,7 +510,6 @@ async function generatePrdPages(session, prdConfig, selectedPages) {
   };
 }
 
-// 应用准备完成后创建窗口，并兼容 macOS 的激活行为。
 app.whenReady().then(() => {
   const store = new Store();
   const profileService = new ProfileService(store);
@@ -327,22 +526,25 @@ app.whenReady().then(() => {
       const convertResult = await convert(payload.source);
       const sessionId = crypto.randomUUID();
       const indexContent = convertResult.generateIndex();
+      const parsedDir = getParsedOutputDir(sessionId);
+      writeParsedArtifacts(parsedDir, indexContent, convertResult);
+
       sessions.set(sessionId, {
         id: sessionId,
         source: payload.source,
         convertResult,
         indexContent,
+        parsedDir,
         aborted: false,
       });
 
-      // 从 sitemap 提取页面列表（含 id/name），供渲染进程 step3 展示复选框
       const sitemapPages = convertResult.sitemap && Array.isArray(convertResult.sitemap.pages)
         ? convertResult.sitemap.pages
         : [];
-      const pageList = sitemapPages.map((p, idx) => ({
-        id: p.pageName || p.name || `page-${idx}`,
-        name: p.pageName || p.name || `未命名页面 ${idx + 1}`,
-        path: p.path || p.pageName || '',
+      const pageList = sitemapPages.map((item, idx) => ({
+        id: item.pageName || item.name || `page-${idx}`,
+        name: item.pageName || item.name || `未命名页面 ${idx + 1}`,
+        path: item.path || item.pageName || '',
       }));
 
       return {
@@ -351,11 +553,21 @@ app.whenReady().then(() => {
         pages: pageList,
         pageCount: pageList.length,
         indexContent,
+        parsedDir,
       };
     } catch (error) {
       error.code = error.code || 'CONVERT_FAILED';
       throw error;
     }
+  });
+
+  registerIpcHandler('axure:open-parsed-dir', async (_event, payload) => {
+    const session = getSession(sessions, payload.sessionId);
+    const errorMessage = await shell.openPath(session.parsedDir);
+    if (errorMessage) {
+      throw createIpcError('OPEN_DIR_FAILED', errorMessage);
+    }
+    return { ok: true };
   });
 
   registerIpcHandler('axure:select-pages', async (_event, payload) => {
@@ -380,7 +592,7 @@ app.whenReady().then(() => {
 
     const startedAt = Date.now();
     const historyId = crypto.randomUUID();
-    const outputDir = historyService.getOutputDir(historyId);
+    const outputDir = resolveGenerationOutputDir(historyService, store, historyId);
     const prdConfig = buildPrdRuntimeConfig(profileService, payload.engineConfig, {
       outputDir,
       query: payload.query,
@@ -415,9 +627,10 @@ app.whenReady().then(() => {
         selectedPages,
         stats,
       });
+      updateStoredHistoryOutputDir(store, historyId, outputDir);
 
       sendProgress({ type: 'done', current: stats.processedPages, total: stats.selectedPages, stats });
-      return { stats, historyId };
+      return { stats, historyId, outputDir };
     } catch (error) {
       sendProgress({ type: 'error', message: error.message });
       throw error;
@@ -447,15 +660,71 @@ app.whenReady().then(() => {
     return { ok: true };
   });
   registerIpcHandler('history:open-dir', async (_event, payload) => {
-    const errorMessage = await shell.openPath(historyService.getOutputDir(payload.id));
+    const targetDir = getHistoryOutputDir(store, historyService, payload.id);
+    const errorMessage = await shell.openPath(targetDir);
     if (errorMessage) {
       throw createIpcError('OPEN_DIR_FAILED', errorMessage);
     }
     return { ok: true };
   });
 
+  registerIpcHandler('settings:get-output-dir', async () => ({
+    outputDir: getConfiguredOutputDir(store),
+  }));
+  registerIpcHandler('settings:set-output-dir', async (_event, payload) => {
+    setConfiguredOutputDir(store, payload.outputDir);
+    return { ok: true };
+  });
+  registerIpcHandler('settings:select-output-dir', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+      title: '选择输出目录',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+
+    return {
+      outputDir: canceled || !filePaths[0] ? '' : filePaths[0],
+    };
+  });
+
   registerIpcHandler('cli:detect', async () => cliDetector.detect());
   registerIpcHandler('cli:redetect', async () => cliDetector.redetect());
+  registerIpcHandler('cli:build-prompt', async (_event, payload) => {
+    const session = getSession(sessions, payload.sessionId);
+    const fullPrompt = buildCliFullPrompt(
+      session.parsedDir,
+      payload.query,
+      payload.selectedPages
+    );
+    const promptFilePath = path.join(session.parsedDir, '_prompt.md');
+    fs.writeFileSync(promptFilePath, fullPrompt, 'utf-8');
+    return { fullPrompt, parsedDir: session.parsedDir, promptFilePath };
+  });
+  registerIpcHandler('cli:open-terminal', async (_event, payload) => {
+    const session = getSession(sessions, payload.sessionId);
+    const cliTool = String(payload.cliTool || '').trim();
+    if (!cliTool) {
+      throw createIpcError('VALIDATION', 'cliTool 不能为空');
+    }
+
+    // build full prompt and write to file
+    const fullPrompt = buildCliFullPrompt(
+      session.parsedDir,
+      payload.query,
+      payload.selectedPages
+    );
+    const promptFilePath = path.join(session.parsedDir, '_prompt.md');
+    fs.writeFileSync(promptFilePath, fullPrompt, 'utf-8');
+
+    const command = buildCliCommand(cliTool, promptFilePath);
+    launchSystemTerminal(session.parsedDir, command);
+    return {
+      ok: true,
+      command,
+      fullPrompt,
+      parsedDir: session.parsedDir,
+      promptFilePath,
+    };
+  });
 
   registerIpcHandler('app:info', async () => ({
     version: app.getVersion(),
@@ -464,9 +733,8 @@ app.whenReady().then(() => {
 
   createWindow();
 
-  // 打包后自动检查更新，开发模式跳过 by AI.Coding
   if (app.isPackaged) {
-    autoUpdater.on('error', () => {}); // 静默捕获，不影响功能
+    autoUpdater.on('error', () => {});
     autoUpdater.on('update-downloaded', () => {
       dialog.showMessageBox(mainWindow, {
         type: 'info',
@@ -489,7 +757,6 @@ app.whenReady().then(() => {
   });
 });
 
-// 非 macOS 平台在全部窗口关闭后直接退出应用。
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
