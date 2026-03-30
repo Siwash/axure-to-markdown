@@ -2,5 +2,6 @@ node_modules/
 axure-prd-output/
 prd-output/
 prd-real-output/
+dist/
 *.log
 .DS_Store

@@ -12,10 +12,18 @@
     "parse": "node index.js",
     "test": "node test/run.js",
     "prd": "node bin/axure-prd.js",
-    "test:e2e": "node test/e2e/run-e2e.js"
+    "test:e2e": "node test/e2e/run-e2e.js",
+    "electron:dev": "electron app/main.js",
+    "dist": "electron-builder"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
+    "electron-store": "^11.0.2",
+    "electron-updater": "^6.8.3",
     "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "electron": "^41.1.0",
+    "electron-builder": "^26.8.1"
   }
 }

@@ -17,6 +17,12 @@ function createAdapter(config) {
       return new LocalCLIAdapter(config);
     case 'ollama':
       return new OllamaAdapter(config);
+    case 'claude-cli':
+      return new LocalCLIAdapter({ ...config, provider: 'local-cli', command: 'claude' });
+    case 'codex-cli':
+      return new LocalCLIAdapter({ ...config, provider: 'local-cli', command: 'codex' });
+    case 'opencode-cli':
+      return new LocalCLIAdapter({ ...config, provider: 'local-cli', command: 'opencode' });
     default:
       throw new Error(`Unknown adapter provider: ${config.provider}`);
   }

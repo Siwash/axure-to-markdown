@@ -2,7 +2,7 @@
 
 将 Axure RP 发布的 **在线/本地** HTML 原型自动转换为结构化 Markdown 文档，并可通过 LLM 一键生成 PRD。
 
-## 两种使用方式
+## 三种使用方式
 
 ### 方式一：纯解析（不需要 LLM）
 
@@ -13,7 +13,7 @@
 node index.js https://sharecloud.seeyoncloud.com/1HREH3
 
 # 指定输出目录
-node index.js https://sharecloud.seeyoncloud.com/1HREH3 ./my-docs
+node index.js https://sharecloud.xxxxxxx ./my-docs
 
 # 本地模式 —— 读取 Axure 导出的 HTML 目录
 node index.js D:\my-prototype
@@ -29,7 +29,7 @@ axure-prd-output/
 └── ...
 ```
 
-### 方式二：PRD Client（LLM 驱动，交互式生成 PRD）
+### 方式二：PRD Client（CLI，LLM 驱动）
 
 解析原型后，由 AI 筛选相关页面，逐页生成专业 PRD 文档。
 
@@ -95,6 +95,62 @@ output:
   template: prd
 ```
 
+### 方式三：桌面客户端（Electron GUI）
+
+为不习惯命令行的产品经理提供图形界面，4 步向导完成 PRD 生成。
+
+#### 功能特性
+
+- **生成向导**：输入 URL → 选择引擎 → 描述需求 → AI 生成 PRD
+- **引擎模式**：
+  - **API 模式**：配置 LLM API（OpenAI / Anthropic / 自定义兼容端点）
+  - **CLI 模式**：直接调用本地 Claude / Codex / OpenCode（无需配置 API Key）
+- **LLM 配置管理**：多配置档案，API Key 加密存储
+- **历史记录**：查看 / 搜索 / 重新生成 / 删除
+- **自动更新**：通过 GitHub Releases 自动检测新版本
+
+#### 快速开始
+
+```bash
+# 开发模式运行
+npm run electron:dev
+
+# 打包构建（当前平台）
+npm run dist
+```
+
+#### CI/CD 自动构建
+
+推送 `v*` 标签自动触发 GitHub Actions 构建，同时产出 macOS (.dmg) 和 Windows (.exe) 安装包：
+
+```bash
+# 打标签触发 Release
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+构建产物自动上传到 GitHub Releases，客户端内置 electron-updater 会自动检测并提示更新。
+
+#### 桌面客户端架构
+
+```
+app/
+├── main.js               # Electron 主进程（IPC handler + 服务初始化）
+├── preload.js             # contextBridge（渲染进程 API）
+├── services/
+│   ├── cli-detector.js    # CLI 工具检测（claude/codex/opencode）
+│   ├── llm-profiles.js    # LLM 配置管理（加密存储）
+│   └── history.js         # 历史记录管理
+└── renderer/
+    ├── index.html         # SPA 入口
+    ├── styles.css          # 暗色主题样式
+    ├── app.js             # hash 路由
+    └── pages/
+        ├── generate.js    # 4 步生成向导
+        ├── settings.js    # LLM / CLI 设置
+        └── history.js     # 历史记录
+```
+
 ## 提取能力
 
 | 信息类型 | 来源 | 说明 |
@@ -152,6 +208,11 @@ Axure 的 JS 文件使用 IIFE + 单字母变量混淆，不是标准 JSON。
 ```
 ├── index.js                  # 纯解析 CLI 入口
 ├── bin/axure-prd.js          # PRD Client CLI 入口
+├── app/                      # Electron 桌面客户端
+│   ├── main.js               # 主进程
+│   ├── preload.js            # preload 脚本
+│   ├── services/             # 后端服务
+│   └── renderer/             # 前端页面
 ├── src/
 │   ├── api.js                # 编程式 API
 │   ├── config.js             # 基础配置
@@ -180,6 +241,10 @@ Axure 的 JS 文件使用 IIFE + 单字母变量混淆，不是标准 JSON。
 ├── test/
 │   ├── run.js                # 单元测试
 │   └── e2e/                  # E2E 测试
+├── build/                    # Electron 打包资源（图标）
+├── electron-builder.yml      # Electron Builder 配置
+├── .github/workflows/
+│   └── release.yml           # CI/CD（macOS + Windows）
 └── docs/
     └── design-client.md      # PRD Client 设计文档
 ```
@@ -198,8 +263,12 @@ Axure 的 JS 文件使用 IIFE + 单字母变量混淆，不是标准 JSON。
 - `cheerio` — HTML 解析
 - `glob` — 本地文件扫描
 - `js-yaml` — YAML 配置解析（PRD Client）
+- `electron` — 桌面客户端框架（devDependency）
+- `electron-builder` — 跨平台打包（devDependency）
+- `electron-store` — 本地数据持久化
+- `electron-updater` — 自动更新
 
-无需浏览器、无需 Puppeteer/Playwright。
+无需浏览器、无需 Puppeteer/Playwright（CLI 模式）。
 
 ## License
 
