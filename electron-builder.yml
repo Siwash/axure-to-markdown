@@ -2,6 +2,9 @@ appId: com.siwash.axure-to-markdown
 productName: Axure to Markdown
 copyright: Copyright © 2026 Siwash
 
+extraMetadata:
+  main: app/main.js
+
 directories:
   output: release
 
