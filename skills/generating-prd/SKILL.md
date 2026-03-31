@@ -12,15 +12,20 @@ description: >-
 
 Parse an Axure prototype into structured markdown, then generate a professional PRD document.
 
-## First-time Setup
+## Prerequisites
 
-Run the pack script once from the project directory to bundle dependencies:
+- Project root `node_modules/` must have `cheerio` installed (`npm install` at project root)
+- All parsing modules are pre-bundled in `scripts/lib/` — no setup needed
+
+## Keeping Modules in Sync
+
+If source modules in `src/` are updated, run from project root:
 
 ```bash
-node {skill-dir}/pack.js
+npm run sync:skill
 ```
 
-This copies source modules into `scripts/lib/` and installs `cheerio`. After packing, the skill directory is fully self-contained and can be copied anywhere.
+This copies the latest `src/*.js` modules into `scripts/lib/` and updates the prompt template.
 
 ## Workflow
 
@@ -60,7 +65,7 @@ node {skill-dir}/scripts/parse-axure.js <source> <output-dir> [options]
 - `<output-dir>` — Where to write parsed `.md` files (e.g., `./axure-parsed`)
 - `--single-file` — (Optional) Merge all pages into one `prd-full.md`
 
-**Self-contained:** After running `pack.js`, all parsing modules are bundled in `{skill-dir}/scripts/lib/`. No external project dependency.
+**Modules:** All parsing modules are bundled in `{skill-dir}/scripts/lib/`. No external project dependency beyond `cheerio`.
 
 **Output structure:**
 
@@ -124,8 +129,8 @@ Report completion with:
 | Error | Action |
 |-------|--------|
 | Parse script not found | Check path: `{skill-dir}/scripts/parse-axure.js` |
-| Cannot find module 'cheerio' | Run `node {skill-dir}/pack.js` to build the skill |
-| Cannot find module './lib/config' | Run `node {skill-dir}/pack.js` to build the skill |
+| Cannot find module 'cheerio' | Run `npm install` at project root |
+| Cannot find module './lib/config' | Run `npm run sync:skill` at project root |
 | Source URL unreachable | Ask user to verify the URL is accessible |
 | No pages found | Axure source may not be a valid published prototype |
 | Parse script crash | Show stderr output to user |
@@ -133,6 +138,6 @@ Report completion with:
 ## Notes
 
 - The parse script has **no LLM dependency** — it only does HTML→Markdown extraction
-- Run `node pack.js` once from the project to build. After that the skill is fully portable
+- Modules in `scripts/lib/` are copies of `src/*.js`. After modifying source, run `npm run sync:skill` to update
 - For large prototypes (20+ pages), the `--single-file` flag produces a single concatenated file which may be easier to process
 - "Waste basket" (废稿) folders in the prototype may contain valuable research data — do not skip them

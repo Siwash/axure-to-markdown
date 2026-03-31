@@ -1,8 +1,4 @@
 node_modules/
-!skills/generating-prd/prompts/
-skills/generating-prd/scripts/lib/
-skills/generating-prd/node_modules/
-skills/generating-prd/package-lock.json
 test-results/
 axure-prd-output/
 prd-output/

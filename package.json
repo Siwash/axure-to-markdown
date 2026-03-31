@@ -14,7 +14,8 @@
     "prd": "node bin/axure-prd.js",
     "test:e2e": "npx playwright test test/e2e/",
     "electron:dev": "electron app/main.js",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "sync:skill": "node -e \"const fs=require('fs'),p=require('path'),d='skills/generating-prd/scripts/lib';fs.mkdirSync(d,{recursive:true});'config readers parser generator utils axure-vm extractors images'.split(' ').forEach(m=>{fs.copyFileSync(p.join('src',m+'.js'),p.join(d,m+'.js'));console.log('  '+m+'.js')});fs.copyFileSync('prompts/prd-generator.md','skills/generating-prd/prompts/prd-generator.md');console.log('synced')\""
   },
   "dependencies": {
     "cheerio": "^1.0.0",
