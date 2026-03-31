@@ -40,15 +40,43 @@ class CliDetector {
 
   /**
    * 按当前平台使用 where 或 which 检测单个命令 by AI.Coding
+   *
+   * macOS GUI 应用不继承终端 PATH（只有 /usr/bin:/bin:/usr/sbin:/sbin），
+   * 需要通过 login shell 获取完整 PATH 后再检测。
    */
   _check(name) {
     try {
-      const cmd = process.platform === 'win32' ? `where ${name}` : `which ${name}`;
-      execSync(cmd, { stdio: 'ignore' });
+      if (process.platform === 'win32') {
+        execSync(`where ${name}`, { stdio: 'ignore' });
+        return true;
+      }
+      // macOS/Linux: 通过 login shell 获取完整 PATH
+      const fullPath = this._getLoginShellPath();
+      execSync(`which ${name}`, {
+        stdio: 'ignore',
+        env: { ...process.env, PATH: fullPath },
+      });
       return true;
     } catch {
       return false;
     }
+  }
+
+  /**
+   * 从 login shell 获取完整 PATH（macOS GUI 应用专用）by AI.Coding
+   */
+  _getLoginShellPath() {
+    if (this._fullPath) return this._fullPath;
+    try {
+      const userShell = process.env.SHELL || '/bin/zsh';
+      this._fullPath = execSync(`${userShell} -lc "echo \\$PATH"`, {
+        encoding: 'utf8',
+        timeout: 5000,
+      }).trim();
+    } catch {
+      this._fullPath = process.env.PATH || '';
+    }
+    return this._fullPath;
   }
 }
 

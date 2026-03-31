@@ -1,7 +1,7 @@
 // 主进程入口 by AI.Coding
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const Store = require('electron-store').default || require('electron-store');
 const { convert } = require('../src/api');
 const { buildConfig, PRD_DEFAULTS } = require('../src/client/config');
@@ -15,6 +15,21 @@ const { CliDetector } = require('./services/cli-detector');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+
+// macOS GUI 应用不继承终端 PATH，通过 login shell 获取完整 PATH
+// 确保 CLI 工具检测和 spawn 调用都能正常工作
+if (process.platform === 'darwin') {
+  try {
+    const userShell = process.env.SHELL || '/bin/zsh';
+    const fullPath = execSync(`${userShell} -lc "echo \\$PATH"`, {
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+    if (fullPath) {
+      process.env.PATH = fullPath;
+    }
+  } catch { /* keep original PATH if shell fails */ }
+}
 
 const SETTINGS_OUTPUT_DIR_KEY = 'settings.outputDir';
 const HISTORY_STORE_KEY = 'history';
