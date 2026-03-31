@@ -1,4 +1,7 @@
-const cheerio = require('cheerio');
+// Prefer local bundle (standalone skill), fall back to npm package (project context)
+const cheerio = (() => {
+  try { return require('./cheerio.bundle'); } catch { return require('cheerio'); }
+})();
 const { executeAxureJs } = require('./axure-vm');
 const { extractWidgetMeta, extractNotes } = require('./extractors');
 const { extractImages, downloadImages } = require('./images');

@@ -14,8 +14,7 @@ Parse an Axure prototype into structured markdown, then generate a professional 
 
 ## Prerequisites
 
-- Project root `node_modules/` must have `cheerio` installed (`npm install` at project root)
-- All parsing modules are pre-bundled in `scripts/lib/` — no setup needed
+- All parsing modules and dependencies are pre-bundled in `scripts/lib/` — no setup needed
 
 ## Keeping Modules in Sync
 
@@ -65,7 +64,7 @@ node {skill-dir}/scripts/parse-axure.js <source> <output-dir> [options]
 - `<output-dir>` — Where to write parsed `.md` files (e.g., `./axure-parsed`)
 - `--single-file` — (Optional) Merge all pages into one `prd-full.md`
 
-**Modules:** All parsing modules are bundled in `{skill-dir}/scripts/lib/`. No external project dependency beyond `cheerio`.
+**Modules:** All parsing modules and dependencies are bundled in `{skill-dir}/scripts/lib/`. No external dependency needed.
 
 **Output structure:**
 
@@ -129,7 +128,6 @@ Report completion with:
 | Error | Action |
 |-------|--------|
 | Parse script not found | Check path: `{skill-dir}/scripts/parse-axure.js` |
-| Cannot find module 'cheerio' | Run `npm install` at project root |
 | Cannot find module './lib/config' | Run `npm run sync:skill` at project root |
 | Source URL unreachable | Ask user to verify the URL is accessible |
 | No pages found | Axure source may not be a valid published prototype |
