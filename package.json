@@ -1,6 +1,6 @@
 {
   "name": "axure-to-markdown",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "将 Axure RP 发布的 HTML 原型自动转换为结构化 Markdown 文档，供 AI 消费",
   "main": "index.js",
   "bin": {

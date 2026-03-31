@@ -10,11 +10,13 @@ async function selectPages(convertResult, query, prdConfig, callbacks = {}) {
 
   callbacks.onSelectStart && callbacks.onSelectStart();
 
+  // 页面选择使用独立的 system prompt，不继承用户的 PRD 生成配置，
+  // 避免用户 systemPrompt 干扰页面筛选指令。
   const stream = await adapter.generate(prompt, {
     model: prdConfig.model,
     maxTokens: 2000,
     temperature: 0.1,
-    systemPrompt: prdConfig.systemPrompt,
+    systemPrompt: '你是 JSON 数据提取器。严格按照用户指令从文档中提取信息，只输出 JSON 数组，不要输出任何解释、提问或多余文字。',
   });
 
   const output = await collectOutput(stream, piece => {
