@@ -567,115 +567,50 @@
   }
 
   /**
-   * 初始化每个页面的任务状态，供步骤4右侧任务列表使用 by AI.Coding
+   * 初始化生成状态 by AI.Coding
    */
   function initializePageStatuses() {
     state.pageStatuses = new Map();
-    state.selectedPages.forEach(pageId => {
-      state.pageStatuses.set(pageId, 'pending');
-    });
+    state.pageStatuses.set('__generation__', 'pending');
   }
 
   /**
-   * 处理主进程进度事件，并同步更新任务列表与进度 UI by AI.Coding
+   * 处理主进程进度事件（全量模式：generate-start/chunk/generate-complete） by AI.Coding
    */
   function handleProgress(data) {
     if (!document.getElementById('step4-content')) return;
 
-    const { type, pageName, chunk, current, total, error } = data;
-    updatePageStatus(type, pageName);
+    const { type, chunk, current, total } = data;
 
     const preview = document.getElementById('term-preview');
-    const pageNameEl = document.getElementById('curr-page-name');
+    const statusEl = document.getElementById('curr-page-name');
     const barFill = document.getElementById('prog-bar-fill');
     const progText = document.getElementById('prog-text');
 
-    if (type === 'page-start') {
-      const trackedName = resolveTrackedPageName(pageName, type) || pageName;
-      if (pageNameEl) pageNameEl.textContent = `正在生成: ${trackedName}...`;
-      if (preview) {
-        preview.textContent += `\n\n--- 正在处理: ${trackedName} ---\n`;
-        preview.scrollTop = preview.scrollHeight;
-      }
+    if (type === 'generate-start') {
+      if (statusEl) statusEl.textContent = '正在生成 PRD...';
+      if (barFill) barFill.style.width = '10%';
     } else if (type === 'chunk') {
       if (preview) {
         preview.textContent += chunk;
         preview.scrollTop = preview.scrollHeight;
       }
-    } else if (type === 'progress' || type === 'page-complete') {
-      if (barFill && total > 0) {
-        barFill.style.width = `${(current / total) * 100}%`;
+      // Smoothly advance progress bar between 10% and 90% based on content length
+      if (barFill && preview) {
+        const len = preview.textContent.length;
+        const pct = Math.min(90, 10 + len / 100);
+        barFill.style.width = `${pct}%`;
       }
-      if (progText) {
-        progText.textContent = `${current} / ${total}`;
-      }
-    } else if (type === 'page-failed') {
-      const trackedName = resolveTrackedPageName(pageName, type) || pageName;
-      if (preview) {
-        preview.textContent += `\n\n❌ 页面「${trackedName}」生成失败: ${error}\n`;
-        preview.scrollTop = preview.scrollHeight;
-      }
-      if (barFill && total > 0) {
-        barFill.style.width = `${(current / total) * 100}%`;
-      }
-      if (progText) {
-        progText.textContent = `${current} / ${total}`;
+    } else if (type === 'generate-complete') {
+      if (statusEl) statusEl.textContent = '生成完成';
+      if (barFill) barFill.style.width = '100%';
+      if (progText) progText.textContent = '完成';
+    } else if (type === 'orchestrate-progress') {
+      // Material preparation stage
+      if (data.stage === 'material-ready' && statusEl) {
+        statusEl.textContent = `素材准备就绪，共 ${data.totalPages || 0} 个页面，约 ${data.totalTokensEstimated || 0} tokens`;
       }
     }
-
-    syncTaskListDom();
-  }
-
-  /**
-   * 根据 progress 事件把页面状态同步到 Map 中 by AI.Coding
-   */
-  function updatePageStatus(type, pageName) {
-    const trackedName = resolveTrackedPageName(pageName, type);
-    if (!trackedName) return;
-
-    if (type === 'page-start') {
-      state.pageStatuses.set(trackedName, 'generating');
-      return;
-    }
-
-    if (type === 'page-complete') {
-      state.pageStatuses.set(trackedName, 'completed');
-      return;
-    }
-
-    if (type === 'page-failed') {
-      state.pageStatuses.set(trackedName, 'failed');
-    }
-  }
-
-  /**
-   * 兼容 progress 事件页名与勾选页名不一致的场景，优先匹配当前最可能的任务 by AI.Coding
-   */
-  function resolveTrackedPageName(pageName, type) {
-    if (pageName && state.pageStatuses.has(pageName)) {
-      return pageName;
-    }
-
-    const entries = Array.from(state.pageStatuses.entries());
-    if (entries.length === 0) {
-      return pageName || null;
-    }
-
-    if (type === 'page-start') {
-      const pending = entries.find(([, status]) => status === 'pending');
-      if (pending) return pending[0];
-      const generating = entries.find(([, status]) => status === 'generating');
-      return generating ? generating[0] : entries[0][0];
-    }
-
-    if (type === 'page-complete' || type === 'page-failed') {
-      const generating = entries.find(([, status]) => status === 'generating');
-      if (generating) return generating[0];
-      const pending = entries.find(([, status]) => status === 'pending');
-      return pending ? pending[0] : entries[0][0];
-    }
-
-    return pageName || null;
   }
 
   /**
@@ -703,11 +638,11 @@
 
           <div class="progress-container">
             <div class="progress-bar-bg">
-              <div class="progress-bar-fill" id="prog-bar-fill"></div>
+              <div class="progress-bar-fill" id="prog-bar-fill" style="transition:width 0.3s ease;"></div>
             </div>
             <div class="progress-text">
-              <span>处理进度</span>
-              <span id="prog-text">0 / ${state.selectedPages.length}</span>
+              <span>全量生成</span>
+              <span id="prog-text">生成中...</span>
             </div>
           </div>
 
@@ -729,7 +664,6 @@
         </div>
       `;
     } else if (state.stats) {
-      const failed = (state.stats.selectedPages || 0) - (state.stats.processedPages || 0);
       mainCardHtml = `
         <div class="card" style="border-color:rgba(16, 185, 129, 0.3);">
           <div class="card-title text-success">
@@ -738,16 +672,8 @@
           </div>
           <div class="mt-md" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; background:rgba(255,255,255,0.02); padding:20px; border-radius:8px;">
             <div>
-              <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">总处理页面</div>
+              <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">输入页面数</div>
               <div style="font-size:24px; font-weight:600; font-family:var(--font-heading);">${state.stats.selectedPages || 0}</div>
-            </div>
-            <div>
-              <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">成功生成</div>
-              <div style="font-size:24px; font-weight:600; font-family:var(--font-heading); color:var(--color-success);">${state.stats.processedPages || 0}</div>
-            </div>
-            <div>
-              <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">失败页面</div>
-              <div style="font-size:24px; font-weight:600; font-family:var(--font-heading); color:${failed > 0 ? 'var(--color-danger)' : 'var(--color-text-primary)'};">${failed}</div>
             </div>
             <div>
               <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:4px;">总耗时</div>
@@ -763,16 +689,7 @@
       `;
     }
 
-    if (isCliTerminal || isCliInappPending) {
-      step4.innerHTML = mainCardHtml;
-    } else {
-      step4.innerHTML = `
-        <div class="step4-layout">
-          <div class="step4-main">${mainCardHtml}</div>
-          ${renderTaskPanel()}
-        </div>
-      `;
-    }
+    step4.innerHTML = mainCardHtml;
   }
 
   /**
@@ -840,68 +757,6 @@
         </div>
       </div>
     `;
-  }
-
-  /**
-   * 渲染步骤4右侧任务列表，生成完成后仍保留状态结果 by AI.Coding
-   */
-  function renderTaskPanel() {
-    if (state.pageStatuses.size === 0) {
-      return '';
-    }
-
-    const completedCount = Array.from(state.pageStatuses.values()).filter(status => status === 'completed').length;
-    return `
-      <div class="card step4-side-panel">
-        <div class="card-title" style="justify-content:space-between;">
-          <span>任务列表</span>
-          <span class="task-list-meta">${completedCount} / ${state.pageStatuses.size}</span>
-        </div>
-        <div id="task-list" class="task-list">
-          ${renderTaskItems()}
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * 渲染任务项 HTML，data-status 供样式和 E2E 断言使用 by AI.Coding
-   */
-  function renderTaskItems() {
-    return Array.from(state.pageStatuses.entries()).map(([pageName, status]) => `
-      <div class="task-item" data-page-name="${escapeHtml(pageName)}" data-status="${status}">
-        <span class="task-item__name">${escapeHtml(pageName)}</span>
-        <span class="task-item__status">${getTaskStatusText(status)}</span>
-      </div>
-    `).join('');
-  }
-
-  /**
-   * 在不整页重渲染的情况下刷新任务列表 DOM by AI.Coding
-   */
-  function syncTaskListDom() {
-    const list = document.getElementById('task-list');
-    if (!list) return;
-    list.innerHTML = renderTaskItems();
-
-    const meta = document.querySelector('.task-list-meta');
-    if (meta) {
-      const completedCount = Array.from(state.pageStatuses.values()).filter(status => status === 'completed').length;
-      meta.textContent = `${completedCount} / ${state.pageStatuses.size}`;
-    }
-  }
-
-  /**
-   * 返回任务状态文案，便于用户快速理解当前阶段 by AI.Coding
-   */
-  function getTaskStatusText(status) {
-    const map = {
-      pending: '待处理',
-      generating: '生成中',
-      completed: '已完成',
-      failed: '失败',
-    };
-    return map[status] || '未知';
   }
 
   /**

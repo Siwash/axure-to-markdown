@@ -7,8 +7,6 @@ const { convert } = require('../src/api');
 const { buildConfig, PRD_DEFAULTS } = require('../src/client/config');
 const { selectPages, orchestrate } = require('../src/client/orchestrator');
 const { createAdapter } = require('../src/client/adapters');
-const { assemblePrd } = require('../src/client/assembler');
-const { sanitizeFilename, deduplicateFilename } = require('../src/utils');
 const { ProfileService } = require('./services/llm-profiles');
 const { HistoryService } = require('./services/history');
 const { CliDetector } = require('./services/cli-detector');
@@ -302,21 +300,14 @@ function sendProgress(payload) {
 }
 
 /**
- * 将 PRD 结果写入输出目录，保持与 CLI 模式一致的目录结构 by AI.Coding
+ * 将 PRD 结果写入输出目录：index.md + prd-output.md by AI.Coding
  */
-function writeGenerationOutputs(outputDir, templateName, indexContent, documentContent, pageOutputs) {
+function writeGenerationOutputs(outputDir, templateName, indexContent, documentContent) {
   fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(path.join(outputDir, 'index.md'), indexContent, 'utf-8');
 
   if (documentContent) {
     fs.writeFileSync(path.join(outputDir, `${templateName || 'prd'}-output.md`), documentContent, 'utf-8');
-  }
-
-  const usedNames = new Set();
-  for (const pageOutput of pageOutputs || []) {
-    const baseName = sanitizeFilename(pageOutput.pageName || 'page');
-    const uniqueName = deduplicateFilename(baseName || 'page', usedNames);
-    fs.writeFileSync(path.join(outputDir, `${uniqueName}.md`), pageOutput.llmOutput || '', 'utf-8');
   }
 }
 
@@ -449,78 +440,45 @@ function launchSystemTerminal(parsedDir, command) {
 }
 
 /**
- * 在主进程顺序执行逐页生成，便于在页面间响应取消操作 by AI.Coding
+ * 全量模式：一次性将所有选中页面素材交给 LLM 生成完整 PRD by AI.Coding
  */
 async function generatePrdPages(session, prdConfig, selectedPages) {
-  const aggregatedPageOutputs = [];
   const normalizedPages = normalizeSelectedPages(selectedPages);
   const total = normalizedPages.length;
-  let processed = 0;
-  const pageErrors = [];
 
-  for (const pageName of normalizedPages) {
-    if (session.aborted) {
-      sendProgress({ type: 'cancelled', sessionId: session.id, current: processed, total });
-      break;
-    }
-
-    sendProgress({ type: 'progress', current: processed, total, pageName });
-
-    try {
-      const pageResult = await orchestrate(session.convertResult, prdConfig, {
-        selectedPages: [pageName],
-        callbacks: {
-          onPageStart(currentPageName) {
-            sendProgress({ type: 'page-start', pageName: currentPageName, current: processed, total });
-          },
-          onChunk(currentPageName, chunk) {
-            sendProgress({ type: 'chunk', pageName: currentPageName, chunk, current: processed, total });
-          },
-          onPageComplete(currentPageName) {
-            sendProgress({ type: 'page-complete', pageName: currentPageName, current: processed + 1, total });
-          },
-          onProgress(progress) {
-            sendProgress({ type: 'orchestrate-progress', current: processed, total, ...progress });
-          },
-        },
-      });
-
-      aggregatedPageOutputs.push(...(pageResult.pageOutputs || []));
-      processed += pageResult.stats && typeof pageResult.stats.processedPages === 'number'
-        ? pageResult.stats.processedPages
-        : 0;
-    } catch (pageError) {
-      const errMsg = pageError.message || String(pageError);
-      pageErrors.push({ pageName, error: errMsg });
-      sendProgress({ type: 'page-failed', pageName, error: errMsg, current: processed, total });
-      processed += 1;
-    }
-
-    sendProgress({ type: 'progress', current: processed, total, pageName });
+  if (session.aborted) {
+    sendProgress({ type: 'cancelled', sessionId: session.id, current: 0, total });
+    throw new Error('已取消生成');
   }
 
-  const sitemap = session.convertResult && session.convertResult.sitemap
-    ? session.convertResult.sitemap
-    : { projectName: '', pages: [] };
+  sendProgress({ type: 'generate-start', current: 0, total });
 
-  if (aggregatedPageOutputs.length === 0) {
-    const firstErr = pageErrors.length > 0 ? pageErrors[0].error : '未知错误';
-    throw new Error(`所有页面生成失败: ${firstErr}`);
-  }
-
-  const document = assemblePrd(sitemap, aggregatedPageOutputs, {
-    projectName: prdConfig.projectName || sitemap.projectName || '未命名项目',
-    language: prdConfig.language,
-    template: prdConfig.template,
+  const result = await orchestrate(session.convertResult, prdConfig, {
+    selectedPages: normalizedPages,
+    callbacks: {
+      onProgress(progress) {
+        sendProgress({ type: 'orchestrate-progress', current: 0, total, ...progress });
+      },
+      onGenerateStart() {
+        sendProgress({ type: 'generate-start', current: 0, total });
+      },
+      onChunk(_label, chunk) {
+        if (session.aborted) return;
+        sendProgress({ type: 'chunk', chunk, current: 0, total });
+      },
+      onGenerateComplete() {
+        sendProgress({ type: 'generate-complete', current: total, total });
+      },
+    },
   });
 
   return {
-    document,
-    pageOutputs: aggregatedPageOutputs,
+    document: result.document,
+    pageOutputs: result.pageOutputs,
     stats: {
       totalPages: countPages(session.convertResult),
       selectedPages: total,
-      processedPages: aggregatedPageOutputs.length,
+      processedPages: result.stats.processedPages,
     },
   };
 }
@@ -628,8 +586,7 @@ app.whenReady().then(() => {
         outputDir,
         prdConfig.template,
         session.indexContent,
-        generationResult.document,
-        generationResult.pageOutputs
+        generationResult.document
       );
 
       const engineMeta = resolveEngineMeta(prdConfig);

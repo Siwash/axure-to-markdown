@@ -1,5 +1,4 @@
 const { loadTemplate, renderTemplate } = require('./prompts/loader');
-const { assemblePrd } = require('./assembler');
 
 async function selectPages(convertResult, query, prdConfig, callbacks = {}) {
   const createAdapter = loadCreateAdapter();
@@ -46,13 +45,14 @@ async function orchestrate(convertResult, prdConfig, options = {}) {
   const { callbacks = {}, selectedPages = null } = options;
   const startedAt = Date.now();
   const createAdapter = loadCreateAdapter();
-  const { estimateTokens, splitByHeadings } = loadTokenUtils();
+  const { estimateTokens } = loadTokenUtils();
   const adapter = createAdapter(prdConfig);
   const template = loadTemplate(prdConfig.customTemplate || prdConfig.template || 'prd');
   const sitemap = resolveSitemap(convertResult);
   const allPages = Array.isArray(sitemap.pages) ? sitemap.pages : [];
   const projectName = prdConfig.projectName || sitemap.projectName || '未命名项目';
   const sitemapText = renderSitemapOverview(sitemap);
+  const query = prdConfig.query || '';
 
   // Filter to selected pages only (if provided)
   let pages = allPages;
@@ -72,153 +72,82 @@ async function orchestrate(convertResult, prdConfig, options = {}) {
     });
   }
 
-  const tasks = await Promise.all(pages.map(async page => {
+  // Concatenate all selected pages' markdown into one block
+  const pageMarkdowns = [];
+  for (const page of pages) {
     const pageName = getPageName(page);
     const pagePath = getPagePath(page);
-    const pageMarkdown = await getPageMarkdown(convertResult, page);
-    const totalTokens = estimateTokens(pageMarkdown || '');
-    const chunks = totalTokens > prdConfig.maxContextTokens
-      ? splitByHeadings(pageMarkdown || '', prdConfig.maxContextTokens)
-      : [pageMarkdown || ''];
+    const md = await getPageMarkdown(convertResult, page);
+    if (md && md.trim()) {
+      pageMarkdowns.push(`\n---\n\n### 页面：${pagePath || pageName}\n\n${md.trim()}`);
+    }
+  }
 
-    return {
-      page,
-      pageName,
-      pagePath,
-      pageMarkdown,
-      totalTokens,
-      chunks: chunks.length > 0 ? chunks : [pageMarkdown || ''],
-    };
-  }));
+  const allPagesMarkdown = pageMarkdowns.join('\n');
+  const totalTokensEstimated = estimateTokens(allPagesMarkdown);
 
   callbacks.onProgress && callbacks.onProgress({
-    stage: 'queue-built',
+    stage: 'material-ready',
     totalPages: pages.length,
-    totalTokensEstimated: tasks.reduce((sum, item) => sum + item.totalTokens, 0),
+    totalTokensEstimated,
   });
 
-  // Always sequential (concurrency=1)
-  const results = [];
-  for (const task of tasks) {
-    const result = await processPageTask(task, {
-      adapter,
-      template,
-      projectName,
-      sitemapText,
-      prdConfig,
-      callbacks,
-    });
-    results.push(result);
-  }
+  callbacks.onGenerateStart && callbacks.onGenerateStart();
 
-  const pageOutputs = results.filter(Boolean);
-  if (pageOutputs.length === 0) {
-    throw new Error('No pages were successfully generated');
-  }
-
-  const document = assemblePrd(sitemap, pageOutputs, {
+  // Render template with all pages concatenated
+  const prompt = renderTemplate(template, {
     projectName,
-    language: prdConfig.language,
-    template: prdConfig.template,
+    sitemap: sitemapText,
+    query: query || '请分析以上页面并生成完整 PRD',
+    allPagesMarkdown,
   });
-
-  return {
-    document,
-    pageOutputs,
-    stats: {
-      totalPages: allPages.length,
-      selectedPages: pages.length,
-      processedPages: pageOutputs.length,
-      totalTokensEstimated: tasks.reduce((sum, item) => sum + item.totalTokens, 0),
-      elapsedMs: Date.now() - startedAt,
-    },
-  };
-}
-
-async function processPageTask(task, context) {
-  const {
-    adapter,
-    template,
-    projectName,
-    sitemapText,
-    prdConfig,
-    callbacks,
-  } = context;
-
-  callbacks.onPageStart && callbacks.onPageStart(task.pageName);
 
   let attempt = 0;
   let lastError = null;
 
-  while (attempt <= prdConfig.maxRetries) {
+  while (attempt <= (prdConfig.maxRetries || 0)) {
     try {
-      const chunkOutputs = [];
-
-      for (let index = 0; index < task.chunks.length; index += 1) {
-        const chunk = task.chunks[index];
-        const prompt = renderTemplate(template, {
-          projectName,
-          pageName: task.pageName,
-          pagePath: task.pagePath,
-          sitemap: sitemapText,
-          pageMarkdown: task.chunks.length > 1
-            ? `> 当前为分片 ${index + 1}/${task.chunks.length}\n\n${chunk}`
-            : chunk,
-        });
-
-        const stream = await adapter.generate(prompt, {
-          model: prdConfig.model,
-          maxTokens: prdConfig.maxTokens,
-          temperature: prdConfig.temperature,
-          systemPrompt: prdConfig.systemPrompt,
-        });
-
-        const output = await collectOutput(stream, piece => {
-          if (callbacks.onChunk) {
-            callbacks.onChunk(task.pageName, piece);
-          }
-        });
-        chunkOutputs.push(output.trim());
-      }
-
-      const mergedOutput = chunkOutputs.filter(Boolean).join('\n\n');
-      const pageOutput = {
-        pageName: task.pageName,
-        path: task.pagePath,
-        llmOutput: mergedOutput,
-      };
-
-      callbacks.onPageComplete && callbacks.onPageComplete(task.pageName, mergedOutput);
-      callbacks.onProgress && callbacks.onProgress({
-        stage: 'page-complete',
-        pageName: task.pageName,
+      const stream = await adapter.generate(prompt, {
+        model: prdConfig.model,
+        maxTokens: prdConfig.maxTokens,
+        temperature: prdConfig.temperature,
+        systemPrompt: prdConfig.systemPrompt,
       });
 
-      return pageOutput;
+      const document = await collectOutput(stream, piece => {
+        if (callbacks.onChunk) callbacks.onChunk('prd', piece);
+      });
+
+      callbacks.onGenerateComplete && callbacks.onGenerateComplete(document);
+
+      return {
+        document: document.trim(),
+        pageOutputs: [],
+        stats: {
+          totalPages: allPages.length,
+          selectedPages: pages.length,
+          processedPages: pages.length,
+          totalTokensEstimated,
+          elapsedMs: Date.now() - startedAt,
+        },
+      };
     } catch (error) {
       lastError = error;
       attempt += 1;
 
       callbacks.onProgress && callbacks.onProgress({
-        stage: 'page-retry',
-        pageName: task.pageName,
+        stage: 'retry',
         attempt,
         error: error.message,
       });
 
-      if (attempt > prdConfig.maxRetries) {
+      if (attempt > (prdConfig.maxRetries || 0)) {
         break;
       }
     }
   }
 
-  callbacks.onProgress && callbacks.onProgress({
-    stage: 'page-failed',
-    pageName: task.pageName,
-    error: lastError ? lastError.message : 'Unknown error',
-  });
-
-  return null;
+  throw lastError || new Error('PRD generation failed');
 }
 
 async function collectOutput(stream, onChunk) {
@@ -332,15 +261,8 @@ function loadCreateAdapter() {
 function loadTokenUtils() {
   try {
     const moduleExports = require('./token-utils');
-    if (moduleExports) {
-      return {
-        estimateTokens: typeof moduleExports.estimateTokens === 'function'
-          ? moduleExports.estimateTokens
-          : fallbackEstimateTokens,
-        splitByHeadings: typeof moduleExports.splitByHeadings === 'function'
-          ? moduleExports.splitByHeadings
-          : fallbackSplitByHeadings,
-      };
+    if (moduleExports && typeof moduleExports.estimateTokens === 'function') {
+      return { estimateTokens: moduleExports.estimateTokens };
     }
   } catch (error) {
     if (!isModuleMissing(error, './token-utils')) {
@@ -348,40 +270,11 @@ function loadTokenUtils() {
     }
   }
 
-  return {
-    estimateTokens: fallbackEstimateTokens,
-    splitByHeadings: fallbackSplitByHeadings,
-  };
+  return { estimateTokens: fallbackEstimateTokens };
 }
 
 function fallbackEstimateTokens(text) {
   return Math.ceil(String(text || '').length / 4);
-}
-
-function fallbackSplitByHeadings(markdown, maxContextTokens) {
-  const text = String(markdown || '');
-  if (!text.trim()) return [''];
-
-  const sections = text.split(/\n(?=##\s+)/g);
-  const chunks = [];
-  let current = '';
-
-  for (const section of sections) {
-    const candidate = current ? `${current}\n${section}` : section;
-    if (fallbackEstimateTokens(candidate) <= maxContextTokens || !current) {
-      current = candidate;
-      continue;
-    }
-
-    chunks.push(current);
-    current = section;
-  }
-
-  if (current) {
-    chunks.push(current);
-  }
-
-  return chunks.length > 0 ? chunks : [text];
 }
 
 function isModuleMissing(error, request) {

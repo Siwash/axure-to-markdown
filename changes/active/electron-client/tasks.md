@@ -99,5 +99,37 @@
   - 设置页全流程
   - 本地构建验证
 
+### 第七批：Electron 客户端增量功能 ← delta
+
+- [ ] 【测试】更新 E2E 用例与 mock 覆盖 5 个新功能 ← delta
+  - 调整既有测试 3/5 的选择器断言
+  - 补充 parsedDir / CLI 状态 / 输出目录相关 mock
+  - 新增测试 16-21
+
+- [ ] 【UI】平铺引擎与提供商选项卡片 ← delta
+  - 设置弹窗 provider 改为 `.provider-option`
+  - Step2 的 profile / cli 改为 `.profile-option` / `.cli-option`
+  - 补充选中态暗色主题样式
+
+- [ ] 【生成】解析目录信息条与打开目录 ← delta
+  - convert 返回 `parsedDir`
+  - Step2 顶部展示 `#parsed-info`
+  - 新增 `axure:open-parsed-dir` + preload API
+
+- [ ] 【设置】输出目录配置持久化 ← delta
+  - 设置页增加 `#output-dir-section`
+  - 新增 settings IPC / preload API
+  - generate 使用自定义输出目录
+
+- [ ] 【生成】Step4 任务状态列表 ← delta
+  - state 新增 `pageStatuses`
+  - 右侧渲染 `#task-list` 与 `.task-item`
+  - progress 事件更新任务状态
+
+- [ ] 【CLI】Step4 终端唤起模式 ← delta
+  - CLI 模式显示命令预览 / 文件路径 / 启动终端按钮
+  - 新增 `cli:open-terminal` + preload API
+  - 主进程构造命令并唤起系统终端
+
 > ⚠️ 端到端验证因 electron 二进制安装 EBUSY 锁问题暂时阻塞（环境问题，非代码问题）。
 > 需关闭占用 node_modules/electron 目录的进程后重新 `npm install`。

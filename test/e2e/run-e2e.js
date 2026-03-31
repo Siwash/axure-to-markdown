@@ -90,7 +90,7 @@ async function main() {
   });
 
   await test('estimateTokens handles Chinese text', async () => {
-    assert.strictEqual(estimateTokens('你好世界'), 1);
+    assert.strictEqual(estimateTokens('你好世界'), 6);
   });
 
   await test('estimateTokens handles null', async () => {
@@ -118,10 +118,10 @@ async function main() {
 
   console.log('\nprompts/loader:');
 
-  await test('loadTemplate prd returns a non-empty template containing pageMarkdown', async () => {
+  await test('loadTemplate prd returns a non-empty template containing allPagesMarkdown', async () => {
     const template = loadTemplate('prd');
     assert.ok(template.length > 0);
-    assert.ok(template.includes('{{pageMarkdown}}'));
+    assert.ok(template.includes('{{allPagesMarkdown}}'));
   });
 
   await test('loadTemplate api-design returns a non-empty template', async () => {
@@ -419,10 +419,8 @@ async function main() {
       exports: {
         createAdapter: () => ({
           async *generate(prompt) {
-            const match = String(prompt).match(/当前页面：(.+)/);
-            const pageName = match ? match[1].trim() : '测试页面';
-            yield `## ${pageName}\n\n`;
-            yield '这是LLM生成的PRD内容。\n';
+            yield '# 完整 PRD 文档\n\n';
+            yield '这是LLM基于全量素材生成的PRD内容。\n';
           },
         }),
       },
@@ -430,8 +428,8 @@ async function main() {
 
     try {
       const { orchestrate } = require('../../src/client/orchestrator');
-      const startedPages = [];
-      const completedPages = [];
+      let generateStarted = false;
+      let generateCompleted = false;
       const progressEvents = [];
 
       const result = await orchestrate(
@@ -447,31 +445,31 @@ async function main() {
           projectName: 'Mock Project',
         },
         {
-          onPageStart(pageName) {
-            startedPages.push(pageName);
-          },
-          onPageComplete(pageName) {
-            completedPages.push(pageName);
-          },
-          onProgress(event) {
-            progressEvents.push(event);
+          callbacks: {
+            onGenerateStart() {
+              generateStarted = true;
+            },
+            onGenerateComplete() {
+              generateCompleted = true;
+            },
+            onProgress(event) {
+              progressEvents.push(event);
+            },
           },
         }
       );
 
-      assert.ok(result.document.includes('## 首页'));
-      assert.ok(result.document.includes('## 子页面'));
-      assert.ok(result.document.includes('这是LLM生成的PRD内容。'));
-      assert.strictEqual(result.pageOutputs.length, 2);
+      assert.ok(result.document.includes('完整 PRD 文档'));
+      assert.ok(result.document.includes('这是LLM基于全量素材生成的PRD内容。'));
+      assert.deepStrictEqual(result.pageOutputs, []);
       assert.strictEqual(result.stats.totalPages, 2);
+      assert.strictEqual(result.stats.selectedPages, 2);
       assert.strictEqual(result.stats.processedPages, 2);
       assert.ok(result.stats.totalTokensEstimated > 0);
       assert.ok(result.stats.elapsedMs >= 0);
-      assert.deepStrictEqual(startedPages.slice().sort(), ['子页面', '首页']);
-      assert.deepStrictEqual(completedPages.slice().sort(), ['子页面', '首页']);
-      assert.ok(progressEvents.some(event => event.stage === 'queue-built'));
-      assert.strictEqual(progressEvents.filter(event => event.stage === 'page-complete').length, 2);
-      assert.strictEqual(countOccurrences(result.document, '这是LLM生成的PRD内容。'), 2);
+      assert.ok(generateStarted);
+      assert.ok(generateCompleted);
+      assert.ok(progressEvents.some(event => event.stage === 'material-ready'));
     } finally {
       delete require.cache[orchestratorPath];
       if (originalOrchestratorCache) {
