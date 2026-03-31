@@ -22,8 +22,48 @@
 const fs = require('fs');
 const path = require('path');
 
-// Resolve project root (two levels up from scripts/)
-const projectRoot = path.resolve(__dirname, '..', '..', '..');
+// Resolve project root with multi-strategy search:
+// 1. --project-root=<path> CLI flag (highest priority)
+// 2. Search upward from CWD for package.json with name "axure-to-markdown"
+// 3. __dirname relative (works when skill lives inside the project tree)
+function findProjectRoot() {
+  // Strategy 1: explicit --project-root flag
+  const rootFlag = process.argv.find(a => a.startsWith('--project-root='));
+  if (rootFlag) {
+    const rootPath = path.resolve(rootFlag.split('=')[1]);
+    if (fs.existsSync(path.join(rootPath, 'src', 'config.js'))) return rootPath;
+    console.error(`[parse] WARN: --project-root=${rootPath} has no src/config.js, trying other strategies`);
+  }
+
+  // Strategy 2: search upward from CWD
+  let dir = process.cwd();
+  while (true) {
+    const pkgPath = path.join(dir, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+        if (pkg.name === 'axure-to-markdown' && fs.existsSync(path.join(dir, 'src', 'config.js'))) {
+          return dir;
+        }
+      } catch (_) { /* ignore parse errors */ }
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // reached filesystem root
+    dir = parent;
+  }
+
+  // Strategy 3: __dirname relative (skills/generating-prd/scripts/ → ../../..)
+  const fromDirname = path.resolve(__dirname, '..', '..', '..');
+  if (fs.existsSync(path.join(fromDirname, 'src', 'config.js'))) return fromDirname;
+
+  console.error('[parse] FATAL: Cannot find axure-to-markdown project root.');
+  console.error('  Options:');
+  console.error('    1. Run from within the axure-to-markdown project directory');
+  console.error('    2. Pass --project-root=/path/to/axure-to-markdown');
+  process.exit(1);
+}
+
+const projectRoot = findProjectRoot();
 
 // Load project modules
 const { parseArgs } = require(path.join(projectRoot, 'src', 'config'));

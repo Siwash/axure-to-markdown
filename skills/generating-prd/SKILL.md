@@ -49,6 +49,14 @@ node {skill-dir}/scripts/parse-axure.js <source> <output-dir> [options]
 - `<source>` — The Axure URL or local path from Step 1
 - `<output-dir>` — Where to write parsed `.md` files (e.g., `./axure-parsed`)
 - `--single-file` — (Optional) Merge all pages into one `prd-full.md`
+- `--project-root=<path>` — (Optional) Explicit path to the `axure-to-markdown` project installation
+
+**Module resolution:** The script auto-detects the project root by:
+1. `--project-root` flag (if provided)
+2. Searching upward from CWD for `package.json` with `name: "axure-to-markdown"`
+3. Relative to script location (works when skill lives inside the project)
+
+If auto-detection fails, pass `--project-root` explicitly or `cd` into the project directory before running.
 
 **Output structure:**
 
@@ -112,6 +120,7 @@ Report completion with:
 | Error | Action |
 |-------|--------|
 | Parse script not found | Check path: `{skill-dir}/scripts/parse-axure.js` |
+| MODULE_NOT_FOUND | Script can't find `axure-to-markdown` project. Pass `--project-root=<path>` or run from the project directory |
 | Source URL unreachable | Ask user to verify the URL is accessible |
 | No pages found | Axure source may not be a valid published prototype |
 | Parse script crash | Show stderr output to user |
