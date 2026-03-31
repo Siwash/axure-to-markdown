@@ -1,0 +1,9 @@
+{
+  "name": "generating-prd",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-contained Axure-to-Markdown parser for PRD generation skill",
+  "dependencies": {
+    "cheerio": "^1.0.0"
+  }
+}

@@ -12,6 +12,16 @@ description: >-
 
 Parse an Axure prototype into structured markdown, then generate a professional PRD document.
 
+## First-time Setup
+
+Run the pack script once from the project directory to bundle dependencies:
+
+```bash
+node {skill-dir}/pack.js
+```
+
+This copies source modules into `scripts/lib/` and installs `cheerio`. After packing, the skill directory is fully self-contained and can be copied anywhere.
+
 ## Workflow
 
 Copy this checklist:
@@ -49,14 +59,8 @@ node {skill-dir}/scripts/parse-axure.js <source> <output-dir> [options]
 - `<source>` — The Axure URL or local path from Step 1
 - `<output-dir>` — Where to write parsed `.md` files (e.g., `./axure-parsed`)
 - `--single-file` — (Optional) Merge all pages into one `prd-full.md`
-- `--project-root=<path>` — (Optional) Explicit path to the `axure-to-markdown` project installation
 
-**Module resolution:** The script auto-detects the project root by:
-1. `--project-root` flag (if provided)
-2. Searching upward from CWD for `package.json` with `name: "axure-to-markdown"`
-3. Relative to script location (works when skill lives inside the project)
-
-If auto-detection fails, pass `--project-root` explicitly or `cd` into the project directory before running.
+**Self-contained:** After running `pack.js`, all parsing modules are bundled in `{skill-dir}/scripts/lib/`. No external project dependency.
 
 **Output structure:**
 
@@ -84,7 +88,7 @@ Concatenate all content. This is the raw material for PRD generation.
 Read the prompt template at:
 
 ```
-{project-root}/prompts/prd-generator.md
+{skill-dir}/prompts/prd-generator.md
 ```
 
 The template is between the triple-backtick code block under the `## Prompt` heading (lines 15–119). Extract the prompt text and replace `{{项目名称}}` with the user's project name.
@@ -120,7 +124,8 @@ Report completion with:
 | Error | Action |
 |-------|--------|
 | Parse script not found | Check path: `{skill-dir}/scripts/parse-axure.js` |
-| MODULE_NOT_FOUND | Script can't find `axure-to-markdown` project. Pass `--project-root=<path>` or run from the project directory |
+| Cannot find module 'cheerio' | Run `node {skill-dir}/pack.js` to build the skill |
+| Cannot find module './lib/config' | Run `node {skill-dir}/pack.js` to build the skill |
 | Source URL unreachable | Ask user to verify the URL is accessible |
 | No pages found | Axure source may not be a valid published prototype |
 | Parse script crash | Show stderr output to user |
@@ -128,6 +133,6 @@ Report completion with:
 ## Notes
 
 - The parse script has **no LLM dependency** — it only does HTML→Markdown extraction
-- The script requires `cheerio` (installed via `npm install` in the project root)
+- Run `node pack.js` once from the project to build. After that the skill is fully portable
 - For large prototypes (20+ pages), the `--single-file` flag produces a single concatenated file which may be easier to process
 - "Waste basket" (废稿) folders in the prototype may contain valuable research data — do not skip them
